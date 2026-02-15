@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface JpaServerRepository extends JpaRepository<ServerEntity, Long> {
+public interface JpaServerRepository extends JpaRepository<ServerEntity, Long>, ServerRepository{
 
     List<ServerEntity> findAllByHostname(String hostname);
 
