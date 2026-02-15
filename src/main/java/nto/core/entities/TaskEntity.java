@@ -1,5 +1,6 @@
 package nto.core.entities;
 
+import nto.core.entities.base.BaseEntity;
 import nto.core.enums.TaskStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -12,7 +13,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class TaskEntity {
+public class TaskEntity implements BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

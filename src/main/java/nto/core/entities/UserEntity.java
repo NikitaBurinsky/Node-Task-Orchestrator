@@ -3,6 +3,7 @@ package nto.core.entities;
 import jakarta.persistence.*;
 import lombok.*;
 import nto.core.entities.ServerEntity;
+import nto.core.entities.base.BaseEntity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,7 +14,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserEntity {
+public class UserEntity implements BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

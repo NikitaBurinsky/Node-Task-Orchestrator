@@ -5,6 +5,8 @@ import lombok.*;
 
 import jakarta.persistence.*;
 import lombok.*;
+import nto.core.entities.base.BaseEntity;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -17,7 +19,7 @@ import java.util.Set;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ServerEntity {
+public class ServerEntity implements BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

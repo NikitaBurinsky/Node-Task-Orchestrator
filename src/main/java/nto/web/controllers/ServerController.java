@@ -1,5 +1,6 @@
 package nto.web.controllers;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import nto.application.dto.ServerDto;
 import nto.application.interfaces.services.ServerService;
@@ -16,7 +17,8 @@ public class ServerController {
     private final ServerService serverService;
 
     @PostMapping
-    public ResponseEntity<ServerDto> create(@RequestBody ServerDto dto) {
+    // Добавили @Valid. Если валидация не пройдет, Spring выбросит MethodArgumentNotValidException
+    public ResponseEntity<ServerDto> create(@RequestBody @Valid ServerDto dto) {
         return ResponseEntity.ok(serverService.createServer(dto));
     }
 

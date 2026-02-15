@@ -2,6 +2,8 @@ package nto.core.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import nto.core.entities.base.BaseEntity;
+
 import java.util.HashSet;
 import java.util.Set;
 
@@ -11,7 +13,7 @@ import java.util.Set;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ServerGroupEntity {
+public class ServerGroupEntity implements BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

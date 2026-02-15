@@ -1,5 +1,6 @@
 package nto.application.dto;
 
+import nto.application.dto.base.BaseDto;
 import nto.core.enums.TaskStatus;
 
 public record TaskDto(
@@ -8,4 +9,4 @@ public record TaskDto(
         String output,
         Long serverId,
         Long scriptId
-) {}
+) implements BaseDto {}
