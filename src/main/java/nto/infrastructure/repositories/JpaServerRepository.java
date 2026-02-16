@@ -12,7 +12,11 @@ import java.util.Optional;
 @Repository
 public interface JpaServerRepository extends JpaRepository<ServerEntity, Long>, ServerRepository{
 
+    @EntityGraph(attributePaths = {"groups"})
     List<ServerEntity> findAllByHostname(String hostname);
+
+    @EntityGraph(attributePaths = {"groups"})
+    List<ServerEntity> findAllById(Iterable<Long> ids);
 
     // Пример решения N+1
     // attributePaths указывает поля, которые нужно "сджойнить" (LEFT OUTER JOIN)
@@ -23,4 +27,5 @@ public interface JpaServerRepository extends JpaRepository<ServerEntity, Long>, 
     @Override
     @EntityGraph(attributePaths = {"owner", "groups"})
     Optional<ServerEntity> findById(Long id);
+
 }

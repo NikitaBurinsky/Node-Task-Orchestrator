@@ -24,7 +24,9 @@ public class ServerProfile implements MapperProfile<ServerEntity, ServerDto> {
                 entity.getId(),
                 entity.getHostname(),
                 entity.getIpAddress(),
-                entity.getPort()
+                entity.getPort(),
+                entity.getUsername(),
+                entity.getPassword()
         );
     }
 

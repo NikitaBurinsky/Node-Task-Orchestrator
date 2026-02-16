@@ -1,6 +1,9 @@
 package nto.application.interfaces.services;
 
+import nto.application.dto.BulkTaskRequestDto;
 import nto.application.dto.TaskDto;
+
+import java.util.List;
 
 public interface TaskService {
 
@@ -19,4 +22,5 @@ public interface TaskService {
      * @return Последняя задача или null, если не найдена
      */
     TaskDto getLastStatus(Long serverId, Long scriptId);
+    List<TaskDto> createTasksBulk(BulkTaskRequestDto dto);
 }

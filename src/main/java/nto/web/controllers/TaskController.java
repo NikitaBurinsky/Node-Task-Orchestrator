@@ -2,11 +2,15 @@ package nto.web.controllers;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import nto.application.dto.BulkTaskRequestDto;
 import nto.application.dto.TaskDto;
 import nto.application.interfaces.services.TaskService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/tasks")
@@ -36,5 +40,11 @@ public class TaskController {
         }
 
         return ResponseEntity.ok(task);
+    }
+
+    @PostMapping("/bulk")
+    @Operation(summary = "Массовый запуск", description = "Транзакционный запуск скрипта на группе серверов")
+    public ResponseEntity<List<TaskDto>> createBulk(@RequestBody @Valid BulkTaskRequestDto dto) {
+        return ResponseEntity.ok(taskService.createTasksBulk(dto));
     }
 }

@@ -6,10 +6,6 @@ import nto.core.enums.TaskStatus;
 import java.util.List;
 
 public interface TaskRepository {
-
-    // Базовый метод сохранения (CRUD)
-    TaskEntity save(TaskEntity task);
-
     // Методы для Лабы 3 (Сложные запросы)
 
     // 1. JPQL поиск

@@ -1,16 +1,23 @@
 package nto.infrastructure.services;
 
-import nto.application.dto.ServerDto;
+import lombok.RequiredArgsConstructor;
+import nto.application.annotations.LogExecutionTime; // Создадим чуть ниже
 import nto.application.dto.TaskDto;
-import nto.application.annotations.LogExecutionTime;
-import nto.application.interfaces.mapping.MapperProfile;
 import nto.application.interfaces.repositories.TaskRepository;
 import nto.application.interfaces.services.MappingService;
+import nto.application.interfaces.services.ScriptExecutor;
 import nto.application.interfaces.services.TaskService;
-import nto.core.entities.TaskEntity;
+import nto.core.entities.TaskEntity;import nto.application.dto.BulkTaskRequestDto;
+import nto.core.entities.ServerEntity;
+import nto.core.entities.ScriptEntity;
+import nto.core.enums.TaskStatus;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import nto.application.interfaces.repositories.ServerRepository;
+import nto.application.interfaces.repositories.ScriptRepository;
 import nto.infrastructure.cache.TaskStatusCache;
 import nto.infrastructure.repositories.JpaTaskRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,40 +25,86 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class TaskServiceImpl implements TaskService {
 
-    private final TaskRepository taskRepository;
+    private final JpaTaskRepository taskRepository;
     private final TaskStatusCache statusCache;
     private final MappingService mappingService;
+    private final ServerRepository serverRepository;
+    private final ScriptRepository scriptRepository;
+    private final ScriptExecutor scriptExecutor; // <--- Inject
     @Override
     @Transactional
-    @LogExecutionTime
+    @LogExecutionTime // Применяем аспект (Лаба 4)
     public TaskDto createTask(TaskDto dto) {
-        //TODO
-        // Здесь должен быть код поиска ServerEntity и ScriptEntity из БД
+        TaskEntity entity = mappingService.mapToEntity(dto, TaskEntity.class);
 
-        TaskEntity entity = TaskEntity.builder()
-                // ... инициализация полей
-                .build();
-
+        // 2. Save
         TaskEntity saved = taskRepository.save(entity);
 
-        // Инвалидация/Обновление кэша
+        // 3. Cache Update
         statusCache.put(saved);
-        return mappingService.mapToDto(saved, TaskDto.class);
 
+        scriptExecutor.executeAsync(saved.getId());
+        // 4. Map Entity -> Dto
+        return mappingService.mapToDto(saved, TaskDto.class);
     }
 
     @Override
     public TaskDto getLastStatus(Long serverId, Long scriptId) {
-        // Сначала идем в кэш
+        // 1. Cache Hit
         TaskEntity cached = statusCache.get(serverId, scriptId);
 
         if (cached != null) {
-            // Map From->To
             return mappingService.mapToDto(cached, TaskDto.class);
         }
-        //TODO
-        // Если в кэше нет (например, после рестарта), можно пойти в БД (Native query из шага 1)
-        // И положить результат в кэш
+
+        // 2. Cache Miss -> DB Hit (Native Query из Лабы 3)
+        // Логика: если нет в кэше, ищем последнюю запись в БД
+        // (Этот блок можно дореализовать, если требуется по заданию, пока вернем null)
         return null;
+    }
+    @Override
+    @Transactional // <--- Гарантирует атомарность. Любой RuntimeException вызовет Rollback.
+    @LogExecutionTime // Замеряем время выполнения всей пачки
+    public List<TaskDto> createTasksBulk(BulkTaskRequestDto dto) {
+        // 1. Загружаем скрипт (один раз)
+        ScriptEntity script = scriptRepository.findById(dto.scriptId())
+                .orElseThrow(() -> new RuntimeException("Script not found: " + dto.scriptId()));
+
+        // 2. Пакетная загрузка серверов (решает проблему N+1 запросов)
+        // findAllById вернет только те, что нашел
+        List<ServerEntity> foundServers = serverRepository.findAllById(dto.serverIds());
+
+        // 3. Валидация целостности
+        if (foundServers.size() != dto.serverIds().size()) {
+            // Вычисляем, каких ID не хватает, для информативной ошибки
+            Set<Long> foundIds = foundServers.stream()
+                    .map(ServerEntity::getId)
+                    .collect(Collectors.toSet());
+
+            List<Long> missingIds = dto.serverIds().stream()
+                    .filter(id -> !foundIds.contains(id))
+                    .toList();
+
+            // Выброс исключения откатит транзакцию! Ни одна задача не создастся.
+            throw new RuntimeException("Rollback! Servers not found: " + missingIds);
+        }
+
+        // 4. In-Memory создание сущностей
+        List<TaskEntity> tasksToSave = foundServers.stream()
+                .map(server -> TaskEntity.builder()
+                        .script(script)
+                        .server(server)
+                        .status(TaskStatus.PENDING)
+                        .build())
+                .collect(Collectors.toList());
+
+        // 5. Batch Save (Hibernate попытается сделать batch insert)
+        List<TaskEntity> savedTasks = taskRepository.saveAll(tasksToSave);
+
+        // 6. Обновление кэша
+        savedTasks.forEach(statusCache::put);
+        savedTasks.forEach(t -> scriptExecutor.executeAsync(t.getId()));
+        // 7. Маппинг результата
+        return mappingService.mapListToDto(savedTasks, TaskDto.class);
     }
 }

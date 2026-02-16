@@ -33,6 +33,13 @@ public class ServerEntity implements BaseEntity {
 
     private Integer port;
 
+    @Column(nullable = false)
+    private String username;
+
+    private String password;
+    //TODO
+    // private String privateKey; // Либо ключ (в будущем)
+
     // --- Связи ---
 
     // 1. Владелец
