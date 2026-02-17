@@ -5,5 +5,6 @@ import java.util.Optional;
 
 public interface ScriptRepository {
     Optional<ScriptEntity> findById(Long id);
+
     ScriptEntity save(ScriptEntity script);
 }

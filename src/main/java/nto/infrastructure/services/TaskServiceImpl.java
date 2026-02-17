@@ -1,26 +1,26 @@
 package nto.infrastructure.services;
 
 import lombok.RequiredArgsConstructor;
-import nto.application.annotations.LogExecutionTime; // Создадим чуть ниже
+import nto.application.annotations.LogExecutionTime;
+import nto.application.dto.BulkTaskRequestDto; // Исправлен импорт
 import nto.application.dto.TaskDto;
-import nto.application.interfaces.repositories.TaskRepository;
+import nto.application.interfaces.repositories.ScriptRepository;
+import nto.application.interfaces.repositories.ServerRepository;
 import nto.application.interfaces.services.MappingService;
 import nto.application.interfaces.services.ScriptExecutor;
 import nto.application.interfaces.services.TaskService;
-import nto.core.entities.TaskEntity;import nto.application.dto.BulkTaskRequestDto;
-import nto.core.entities.ServerEntity;
 import nto.core.entities.ScriptEntity;
+import nto.core.entities.ServerEntity;
+import nto.core.entities.TaskEntity;
 import nto.core.enums.TaskStatus;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-import nto.application.interfaces.repositories.ServerRepository;
-import nto.application.interfaces.repositories.ScriptRepository;
 import nto.infrastructure.cache.TaskStatusCache;
 import nto.infrastructure.repositories.JpaTaskRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class TaskServiceImpl implements TaskService {
@@ -106,5 +106,23 @@ public class TaskServiceImpl implements TaskService {
         savedTasks.forEach(t -> scriptExecutor.executeAsync(t.getId()));
         // 7. Маппинг результата
         return mappingService.mapListToDto(savedTasks, TaskDto.class);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TaskDto getTaskById(Long id) {
+        TaskEntity task = taskRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Task not found: " + id));
+        return mappingService.mapToDto(task, TaskDto.class);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TaskDto> getAllTasks() {
+        //TODO
+        // пагинация
+        List<TaskEntity> tasks = taskRepository.findAll();
+
+        return mappingService.mapListToDto(tasks, TaskDto.class);
     }
 }

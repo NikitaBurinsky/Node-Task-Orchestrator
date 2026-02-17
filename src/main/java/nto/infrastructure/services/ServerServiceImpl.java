@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import nto.application.dto.ServerDto;
 import nto.application.interfaces.repositories.ServerRepository;
 import nto.application.interfaces.services.MappingService;
+import nto.application.interfaces.services.ScriptExecutor;
 import nto.application.interfaces.services.ServerService;
 import nto.core.entities.ServerEntity;
 import org.springframework.stereotype.Service;
@@ -14,7 +15,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ServerServiceImpl implements ServerService {
-
+    private final ScriptExecutor scriptExecutor;
     private final ServerRepository serverRepository;
     private final MappingService mappingService;
 
@@ -48,5 +49,11 @@ public class ServerServiceImpl implements ServerService {
         ServerEntity saved = serverRepository.save(entity);
 
         return mappingService.mapToDto(saved, ServerDto.class);
+    }
+    @Override
+    public boolean checkConnection(Long id) {
+        // Транзакция здесь не обязательна, так как ScriptExecutor сам управляет подключениями
+        // и чтением (или создает свою транзакцию если надо)
+        return scriptExecutor.ping(id);
     }
 }

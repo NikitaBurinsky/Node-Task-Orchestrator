@@ -2,6 +2,7 @@ package nto.infrastructure.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import nto.application.interfaces.repositories.ServerRepository;
 import nto.application.interfaces.services.ScriptExecutor;
 import nto.core.entities.TaskEntity;
 import nto.core.enums.TaskStatus;
@@ -25,11 +26,30 @@ public class MockScriptExecutor implements ScriptExecutor {
 
     private final JpaTaskRepository taskRepository;
     private final TaskStatusCache statusCache;
+    private final ServerRepository serverRepository;
 
     // Счетчики для Лабы 6 (Race Condition Demo)
     private final AtomicLong atomicCounter = new AtomicLong(0);
     private long unsafeCounter = 0; // Не защищен от гонки!
+    @Override
+    public boolean ping(Long serverId) {
+        log.info("[Mock] Pinging server {}", serverId);
+        // Проверяем, существует ли сервер вообще
+        if (serverRepository.findById(serverId).isEmpty()) {
+            log.warn("Server {} not found", serverId);
+            return false;
+        }
 
+        // Имитация задержки сети
+        try {
+            Thread.sleep(200);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Имитируем успех с вероятностью 90%
+        return new Random().nextInt(10) > 0;
+    }
     @Override
     @Async("taskExecutor") // Запуск в отдельном потоке
     // REQUIRES_NEW: Важно! Создаем НОВУЮ транзакцию, независимую от той, где задача создавалась.

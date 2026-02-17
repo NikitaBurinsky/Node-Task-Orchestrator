@@ -5,6 +5,7 @@ import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import nto.application.interfaces.repositories.ServerRepository;
 import nto.application.interfaces.services.ScriptExecutor;
 import nto.core.entities.ServerEntity;
 import nto.core.entities.TaskEntity;
@@ -29,6 +30,7 @@ public class SshScriptExecutor implements ScriptExecutor {
 
     private final JpaTaskRepository taskRepository;
     private final TaskStatusCache statusCache;
+    private  final ServerRepository serverRepository;
 
     // Счетчикi
     private final AtomicLong atomicCounter = new AtomicLong(0);
@@ -120,7 +122,35 @@ public class SshScriptExecutor implements ScriptExecutor {
             if (session != null) session.disconnect();
         }
     }
+    @Override
+    public boolean ping(Long serverId) {
+        log.info("[SSH] Pinging server ID: {}", serverId);
 
+        ServerEntity server = serverRepository.findById(serverId)
+                .orElseThrow(() -> new RuntimeException("Server not found: " + serverId));
+
+        Session session = null;
+        try {
+            JSch jsch = new JSch();
+            int sshPort = server.getPort() != null ? server.getPort() : 22;
+
+            session = jsch.getSession(server.getUsername(), server.getIpAddress(), sshPort);
+            session.setPassword(server.getPassword());
+            session.setConfig("StrictHostKeyChecking", "no"); // Внимание: для MVP ок, в проде - known_hosts
+
+            // Пытаемся подключиться с таймаутом 3 секунды (для пинга достаточно)
+            session.connect(3000);
+
+            return session.isConnected();
+        } catch (Exception e) {
+            log.warn("Ping failed for server {}: {}", server.getIpAddress(), e.getMessage());
+            return false;
+        } finally {
+            if (session != null && session.isConnected()) {
+                session.disconnect();
+            }
+        }
+    }
     private void updateStatus(TaskEntity task, TaskStatus status, String output) {
         task.setStatus(status);
         task.setOutput(output);

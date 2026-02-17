@@ -42,6 +42,18 @@ public class TaskController {
         return ResponseEntity.ok(task);
     }
 
+    @GetMapping("/{id}")
+    @Operation(summary = "Получить задачу", description = "Возвращает детали задачи, включая вывод (output) скрипта")
+    public ResponseEntity<TaskDto> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(taskService.getTaskById(id));
+    }
+
+    @GetMapping
+    @Operation(summary = "История задач", description = "Список всех запущенных задач")
+    public ResponseEntity<List<TaskDto>> getAll() {
+        return ResponseEntity.ok(taskService.getAllTasks());
+    }
+
     @PostMapping("/bulk")
     @Operation(summary = "Массовый запуск", description = "Транзакционный запуск скрипта на группе серверов")
     public ResponseEntity<List<TaskDto>> createBulk(@RequestBody @Valid BulkTaskRequestDto dto) {

@@ -23,4 +23,8 @@ public interface TaskService {
      */
     TaskDto getLastStatus(Long serverId, Long scriptId);
     List<TaskDto> createTasksBulk(BulkTaskRequestDto dto);
+
+    // Новые методы для просмотра результатов
+    TaskDto getTaskById(Long id);
+    List<TaskDto> getAllTasks();
 }

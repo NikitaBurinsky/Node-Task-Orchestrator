@@ -36,6 +36,8 @@ public class ServerProfile implements MapperProfile<ServerEntity, ServerDto> {
                 .hostname(dto.hostname())
                 .ipAddress(dto.ipAddress())
                 .port(dto.port())
+                .password(dto.password())
+                .username(dto.username())
                 .build();
     }
 
@@ -44,5 +46,7 @@ public class ServerProfile implements MapperProfile<ServerEntity, ServerDto> {
         entity.setHostname(dto.hostname());
         entity.setIpAddress(dto.ipAddress());
         entity.setPort(dto.port());
+        entity.setUsername(dto.username());
+        entity.setPassword(dto.password());
     }
 }
