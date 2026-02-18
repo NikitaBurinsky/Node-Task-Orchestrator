@@ -32,7 +32,9 @@ public class TaskProfile implements MapperProfile<TaskEntity, TaskDto> {
                 entity.getStatus(),
                 entity.getOutput(),
                 entity.getServer().getId(),
-                entity.getScript().getId()
+                entity.getScript().getId(),
+                entity.getStartedAt(),
+                entity.getFinishedAt()
         );
     }
 

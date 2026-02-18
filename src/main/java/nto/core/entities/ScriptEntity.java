@@ -25,6 +25,10 @@ public class ScriptEntity implements BaseEntity {
     @Column(columnDefinition = "TEXT") // Для больших скриптов
     private String content;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean isPublic = false; // По умолчанию скрипт приватный
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private UserEntity owner;

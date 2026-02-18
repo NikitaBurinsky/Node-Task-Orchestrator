@@ -61,6 +61,7 @@ public class MockScriptExecutor implements ScriptExecutor {
                 .orElseThrow(() -> new RuntimeException("Task not found async: " + taskId));
 
         // 1. Ставим статус RUNNING
+        task.setStartedAt(java.time.LocalDateTime.now());
         updateStatus(task, TaskStatus.RUNNING, "Initializing connection...");
 
         try {
@@ -74,6 +75,7 @@ public class MockScriptExecutor implements ScriptExecutor {
                     "Done. Exit code 0.";
 
             // 3. Успешное завершение
+            task.setFinishedAt(java.time.LocalDateTime.now());
             updateStatus(task, TaskStatus.SUCCESS, fakeOutput);
 
             // --- DEMO RACE CONDITION ---
@@ -81,9 +83,11 @@ public class MockScriptExecutor implements ScriptExecutor {
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            task.setFinishedAt(java.time.LocalDateTime.now());
             updateStatus(task, TaskStatus.CANCELLED, "Execution interrupted");
         } catch (Exception e) {
             log.error("Task failed", e);
+            task.setFinishedAt(java.time.LocalDateTime.now());
             updateStatus(task, TaskStatus.FAILED, "Error: " + e.getMessage());
         }
     }

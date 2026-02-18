@@ -2,7 +2,7 @@ package nto.infrastructure.services;
 
 import lombok.RequiredArgsConstructor;
 import nto.application.annotations.LogExecutionTime;
-import nto.application.dto.BulkTaskRequestDto; // Исправлен импорт
+import nto.application.dto.BulkTaskRequestDto;
 import nto.application.dto.TaskDto;
 import nto.application.interfaces.repositories.ScriptRepository;
 import nto.application.interfaces.repositories.ServerRepository;
@@ -15,12 +15,15 @@ import nto.core.entities.TaskEntity;
 import nto.core.enums.TaskStatus;
 import nto.infrastructure.cache.TaskStatusCache;
 import nto.infrastructure.repositories.JpaTaskRepository;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 public class TaskServiceImpl implements TaskService {
@@ -30,99 +33,176 @@ public class TaskServiceImpl implements TaskService {
     private final MappingService mappingService;
     private final ServerRepository serverRepository;
     private final ScriptRepository scriptRepository;
-    private final ScriptExecutor scriptExecutor; // <--- Inject
+    private final ScriptExecutor scriptExecutor;
+
     @Override
     @Transactional
-    @LogExecutionTime // Применяем аспект (Лаба 4)
+    @LogExecutionTime
     public TaskDto createTask(TaskDto dto) {
-        TaskEntity entity = mappingService.mapToEntity(dto, TaskEntity.class);
+        String username = getCurrentUsername();
 
-        // 2. Save
-        TaskEntity saved = taskRepository.save(entity);
+        ScriptEntity script = getScriptIfAvailable(dto.scriptId(), username);
+        ServerEntity server = getServerIfOwned(dto.serverId(), username);
 
-        // 3. Cache Update
-        statusCache.put(saved);
-
-        scriptExecutor.executeAsync(saved.getId());
-        // 4. Map Entity -> Dto
-        return mappingService.mapToDto(saved, TaskDto.class);
+        return createAndSaveTask(script, server);
     }
 
     @Override
     public TaskDto getLastStatus(Long serverId, Long scriptId) {
-        // 1. Cache Hit
-        TaskEntity cached = statusCache.get(serverId, scriptId);
+        String username = getCurrentUsername();
 
+        // Проверяем права доступа (Fail-fast)
+        getServerIfOwned(serverId, username);
+        getScriptIfAvailable(scriptId, username);
+
+        // 1. Hot Data (Cache)
+        TaskEntity cached = statusCache.get(serverId, scriptId);
         if (cached != null) {
             return mappingService.mapToDto(cached, TaskDto.class);
         }
 
-        // 2. Cache Miss -> DB Hit (Native Query из Лабы 3)
-        // Логика: если нет в кэше, ищем последнюю запись в БД
-        // (Этот блок можно дореализовать, если требуется по заданию, пока вернем null)
-        return null;
+        // 2. Cache Miss -> DB Hit (Закрыли TODO)
+        // Ищем последнюю запись в БД. Если нет - возвращаем null (или можно кидать 404, зависит от фронта)
+        return taskRepository.findFirstByServerIdAndScriptIdOrderByCreatedAtDesc(serverId, scriptId)
+                .map(entity -> mappingService.mapToDto(entity, TaskDto.class))
+                .orElse(null);
     }
-    @Override
-    @Transactional // <--- Гарантирует атомарность. Любой RuntimeException вызовет Rollback.
-    @LogExecutionTime // Замеряем время выполнения всей пачки
-    public List<TaskDto> createTasksBulk(BulkTaskRequestDto dto) {
-        // 1. Загружаем скрипт (один раз)
-        ScriptEntity script = scriptRepository.findById(dto.scriptId())
-                .orElseThrow(() -> new RuntimeException("Script not found: " + dto.scriptId()));
 
-        // 2. Пакетная загрузка серверов (решает проблему N+1 запросов)
-        // findAllById вернет только те, что нашел
+    @Override
+    @Transactional
+    @LogExecutionTime
+    public List<TaskDto> createTasksBulk(BulkTaskRequestDto dto) {
+        String username = getCurrentUsername();
+
+        // 1. Валидация скрипта
+        ScriptEntity script = getScriptIfAvailable(dto.scriptId(), username);
+
+        // 2. Пакетная загрузка серверов
         List<ServerEntity> foundServers = serverRepository.findAllById(dto.serverIds());
 
-        // 3. Валидация целостности
-        if (foundServers.size() != dto.serverIds().size()) {
-            // Вычисляем, каких ID не хватает, для информативной ошибки
-            Set<Long> foundIds = foundServers.stream()
-                    .map(ServerEntity::getId)
-                    .collect(Collectors.toSet());
+        // 3. Валидация целостности списка (все ли ID найдены в базе)
+        validateServersExistence(foundServers, dto.serverIds());
 
-            List<Long> missingIds = dto.serverIds().stream()
-                    .filter(id -> !foundIds.contains(id))
-                    .toList();
+        // 4. Валидация прав (все ли серверы принадлежат юзеру)
+        foundServers.forEach(server -> validateServerOwnership(server, username));
 
-            // Выброс исключения откатит транзакцию! Ни одна задача не создастся.
-            throw new RuntimeException("Rollback! Servers not found: " + missingIds);
-        }
-
-        // 4. In-Memory создание сущностей
+        // 5. Создание и сохранение задач
         List<TaskEntity> tasksToSave = foundServers.stream()
-                .map(server -> TaskEntity.builder()
-                        .script(script)
-                        .server(server)
-                        .status(TaskStatus.PENDING)
-                        .build())
+                .map(server -> buildTask(script, server))
                 .collect(Collectors.toList());
 
-        // 5. Batch Save (Hibernate попытается сделать batch insert)
         List<TaskEntity> savedTasks = taskRepository.saveAll(tasksToSave);
 
-        // 6. Обновление кэша
-        savedTasks.forEach(statusCache::put);
-        savedTasks.forEach(t -> scriptExecutor.executeAsync(t.getId()));
-        // 7. Маппинг результата
+        // 6. Сайд-эффекты (Кэш + Async Executor)
+        savedTasks.forEach(task -> {
+            statusCache.put(task);
+            scriptExecutor.executeAsync(task.getId());
+        });
+
         return mappingService.mapListToDto(savedTasks, TaskDto.class);
     }
 
     @Override
     @Transactional(readOnly = true)
     public TaskDto getTaskById(Long id) {
+        String username = getCurrentUsername();
+
         TaskEntity task = taskRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Task not found: " + id));
+
+        // Security Check: Пользователь может видеть задачу только если он владелец сервера, на котором она выполнялась.
+        if (!task.getServer().getOwner().getUsername().equals(username)) {
+            throw new RuntimeException("Access Denied: Task does not belong to your server context.");
+        }
+
         return mappingService.mapToDto(task, TaskDto.class);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<TaskDto> getAllTasks() {
-        //TODO
-        // пагинация
-        List<TaskEntity> tasks = taskRepository.findAll();
+        String username = getCurrentUsername();
+
+        // Security Check: Возвращаем только задачи с серверов текущего пользователя
+        List<TaskEntity> tasks = taskRepository.findAllByServerOwnerUsername(username);
 
         return mappingService.mapListToDto(tasks, TaskDto.class);
+    }
+
+    // Private Helper Methods (DRY & Security)
+
+    private String getCurrentUsername() {
+        return SecurityContextHolder.getContext().getAuthentication().getName();
+    }
+    /**
+     * Получает скрипт и проверяет права доступа (Владелец или Публичный).
+     */
+    private ScriptEntity getScriptIfAvailable(Long scriptId, String username) {
+        ScriptEntity script = scriptRepository.findById(scriptId)
+                .orElseThrow(() -> new RuntimeException("Script not found: " + scriptId));
+
+        boolean isOwner = script.getOwner().getUsername().equals(username);
+        boolean isPublic = Boolean.TRUE.equals(script.getIsPublic());
+
+        if (!isOwner && !isPublic) {
+            throw new RuntimeException("Access Denied: Script is private and does not belong to you.");
+        }
+        return script;
+    }
+
+    /**
+     * Получает сервер и проверяет права владельца.
+     */
+    private ServerEntity getServerIfOwned(Long serverId, String username) {
+        ServerEntity server = serverRepository.findById(serverId)
+                .orElseThrow(() -> new RuntimeException("Server not found: " + serverId));
+
+        validateServerOwnership(server, username);
+        return server;
+    }
+
+    /**
+     * Проверяет, что сервер принадлежит пользователю.
+     */
+    private void validateServerOwnership(ServerEntity server, String username) {
+        if (!server.getOwner().getUsername().equals(username)) {
+            throw new RuntimeException(
+                    "Access Denied: Server " + server.getHostname() + " (ID: " + server.getId() + ") does not belong to you."
+            );
+        }
+    }
+
+    /**
+     * Проверяет, что все запрошенные ID серверов были найдены в БД.
+     */
+    private void validateServersExistence(List<ServerEntity> foundServers, List<Long> requestedIds) {
+        if (foundServers.size() != requestedIds.size()) {
+            Set<Long> foundIds = foundServers.stream()
+                    .map(ServerEntity::getId)
+                    .collect(Collectors.toSet());
+
+            List<Long> missingIds = requestedIds.stream()
+                    .filter(id -> !foundIds.contains(id))
+                    .toList();
+            throw new RuntimeException("Rollback! Servers not found: " + missingIds);
+        }
+    }
+
+    private TaskDto createAndSaveTask(ScriptEntity script, ServerEntity server) {
+        TaskEntity entity = buildTask(script, server);
+        TaskEntity saved = taskRepository.save(entity);
+
+        statusCache.put(saved);
+        scriptExecutor.executeAsync(saved.getId());
+
+        return mappingService.mapToDto(saved, TaskDto.class);
+    }
+
+    private TaskEntity buildTask(ScriptEntity script, ServerEntity server) {
+        return TaskEntity.builder()
+                .script(script)
+                .server(server)
+                .status(TaskStatus.PENDING)
+                .build();
     }
 }

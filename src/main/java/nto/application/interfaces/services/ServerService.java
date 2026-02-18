@@ -9,4 +9,5 @@ public interface ServerService {
     List<ServerDto> getServersByHostname(String hostname);
     ServerDto createServer(ServerDto dto);
     boolean checkConnection(Long id);
+    public List<ServerDto> getAllServers();
 }

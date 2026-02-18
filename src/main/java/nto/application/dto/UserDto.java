@@ -7,6 +7,5 @@ import nto.application.dto.base.BaseDto;
 public record UserDto(
         Long id,
         String username,
-        @JsonIgnore
         String password // В реальном проекте password исключают или используют @JsonIgnore на чтение
 ) implements BaseDto {}

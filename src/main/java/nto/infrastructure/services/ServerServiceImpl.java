@@ -7,6 +7,8 @@ import nto.application.interfaces.services.MappingService;
 import nto.application.interfaces.services.ScriptExecutor;
 import nto.application.interfaces.services.ServerService;
 import nto.core.entities.ServerEntity;
+import nto.infrastructure.repositories.JpaUserRepository;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,17 @@ public class ServerServiceImpl implements ServerService {
     private final ScriptExecutor scriptExecutor;
     private final ServerRepository serverRepository;
     private final MappingService mappingService;
+    private final JpaUserRepository userRepository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ServerDto> getAllServers() { // Нужно добавить этот метод в интерфейс
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return mappingService.mapListToDto(
+                serverRepository.findAllByOwnerUsername(username),
+                ServerDto.class
+        );
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -44,7 +57,16 @@ public class ServerServiceImpl implements ServerService {
     @Override
     @Transactional
     public ServerDto createServer(ServerDto dto) {
+        // Получаем текущего юзера
+        String username = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+
+        nto.core.entities.UserEntity currentUser = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
         ServerEntity entity = mappingService.mapToEntity(dto, ServerEntity.class);
+
+        // Привязываем владельца
+        entity.setOwner(currentUser);
 
         ServerEntity saved = serverRepository.save(entity);
 
@@ -52,8 +74,13 @@ public class ServerServiceImpl implements ServerService {
     }
     @Override
     public boolean checkConnection(Long id) {
-        // Транзакция здесь не обязательна, так как ScriptExecutor сам управляет подключениями
-        // и чтением (или создает свою транзакцию если надо)
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        ServerEntity server = serverRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Server not found"));
+
+        if (!server.getOwner().getUsername().equals(username)) {
+            throw new RuntimeException("Access Denied: You do not own this server");
+        }
         return scriptExecutor.ping(id);
     }
 }

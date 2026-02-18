@@ -44,7 +44,7 @@ public class SshScriptExecutor implements ScriptExecutor {
 
         TaskEntity task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Task not found"));
-
+        task.setStartedAt(java.time.LocalDateTime.now());
         updateStatus(task, TaskStatus.RUNNING, "Connecting via SSH...");
 
         Session session = null;
@@ -103,19 +103,21 @@ public class SshScriptExecutor implements ScriptExecutor {
                     outputBuffer.append("\nExit Status: ").append(channel.getExitStatus());
                     break;
                 }
-                Thread.sleep(100); // Небольшая пауза, чтобы не грузить CPU
+                Thread.sleep(100);
             }
 
             // 5. Обработка результата
             TaskStatus finalStatus = (channel.getExitStatus() == 0) ? TaskStatus.SUCCESS : TaskStatus.FAILED;
+            task.setFinishedAt(java.time.LocalDateTime.now());
             updateStatus(task, finalStatus, outputBuffer.toString());
 
             // Обновляем счетчики
             atomicCounter.incrementAndGet();
-            unsafeCounter++;
+            ++unsafeCounter;
 
         } catch (Exception e) {
             log.error("SSH Execution failed", e);
+            task.setFinishedAt(java.time.LocalDateTime.now());
             updateStatus(task, TaskStatus.FAILED, "SSH Error: " + e.getMessage());
         } finally {
             if (channel != null) channel.disconnect();

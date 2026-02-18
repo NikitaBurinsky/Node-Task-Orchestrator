@@ -3,15 +3,12 @@ package nto.infrastructure.mapping.profiles;
 import lombok.RequiredArgsConstructor;
 import nto.application.dto.ScriptDto;
 import nto.application.interfaces.mapping.MapperProfile;
-import nto.application.interfaces.repositories.UserRepository;
 import nto.core.entities.ScriptEntity;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
 public class ScriptProfile implements MapperProfile<ScriptEntity, ScriptDto> {
-
-    private final UserRepository userRepository;
 
     @Override
     public Class<ScriptEntity> getEntityClass() {
@@ -29,32 +26,30 @@ public class ScriptProfile implements MapperProfile<ScriptEntity, ScriptDto> {
                 entity.getId(),
                 entity.getName(),
                 entity.getContent(),
-                entity.getOwner() != null ? entity.getOwner().getId() : null
+                // Безопасно достаем имя владельца
+                entity.getOwner() != null ? entity.getOwner().getUsername() : null,
+                entity.getIsPublic()
         );
     }
 
     @Override
     public ScriptEntity mapToEntity(ScriptDto dto) {
-        var entity = ScriptEntity.builder()
+        // При создании из DTO мы игнорируем ownerName,
+        // так как владелец будет установлен в Service из SecurityContext
+        return ScriptEntity.builder()
                 .name(dto.name())
                 .content(dto.content())
+                .isPublic(dto.isPublic() != null ? dto.isPublic() : false)
                 .build();
-
-        resolveOwner(dto, entity);
-        return entity;
     }
 
     @Override
     public void mapToEntity(ScriptDto dto, ScriptEntity entity) {
         entity.setName(dto.name());
         entity.setContent(dto.content());
-        resolveOwner(dto, entity);
-    }
-
-    private void resolveOwner(ScriptDto dto, ScriptEntity entity) {
-        if (dto.ownerId() != null) {
-            entity.setOwner(userRepository.findById(dto.ownerId())
-                    .orElseThrow(() -> new RuntimeException("User not found: " + dto.ownerId())));
+        if (dto.isPublic() != null) {
+            entity.setIsPublic(dto.isPublic());
         }
+        // Owner здесь не обновляем
     }
 }

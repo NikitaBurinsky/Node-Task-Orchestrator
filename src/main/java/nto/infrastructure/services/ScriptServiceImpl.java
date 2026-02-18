@@ -6,6 +6,10 @@ import nto.application.interfaces.repositories.ScriptRepository;
 import nto.application.interfaces.services.MappingService;
 import nto.application.interfaces.services.ScriptService;
 import nto.core.entities.ScriptEntity;
+import nto.core.entities.UserEntity;
+import nto.infrastructure.repositories.JpaScriptRepository;
+import nto.infrastructure.repositories.JpaUserRepository;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,20 +18,32 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ScriptServiceImpl implements ScriptService {
-
-    private final ScriptRepository scriptRepository;
+    private final JpaUserRepository userRepository;
+    private final JpaScriptRepository scriptRepository;
     private final MappingService mappingService;
 
-    @Override
+
+    @Transactional(readOnly = true)
+    public List<ScriptDto> getAllAvailableScripts() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        // Используем наш кастомный запрос
+        List<ScriptEntity> scripts = scriptRepository.findAllAvailableForUser(username);
+        return mappingService.mapListToDto(scripts, ScriptDto.class);
+    }
+
     @Transactional
     public ScriptDto createScript(ScriptDto dto) {
-        // 1. Map Dto -> Entity (Profile сам подтянет Owner по ID)
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        UserEntity currentUser = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Authenticated user not found in DB"));
+
         ScriptEntity entity = mappingService.mapToEntity(dto, ScriptEntity.class);
 
-        // 2. Save
+        entity.setOwner(currentUser);
+
         ScriptEntity saved = scriptRepository.save(entity);
 
-        // 3. Map Entity -> Dto
         return mappingService.mapToDto(saved, ScriptDto.class);
     }
 

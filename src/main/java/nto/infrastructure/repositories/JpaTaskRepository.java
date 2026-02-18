@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface JpaTaskRepository extends JpaRepository<TaskEntity, Long>, TaskRepository {
@@ -25,4 +26,8 @@ public interface JpaTaskRepository extends JpaRepository<TaskEntity, Long>, Task
     // Используем чистый SQL синтаксис Postgres
     @Query(value = "SELECT * FROM tasks WHERE script_id = :scriptId ORDER BY created_at DESC", nativeQuery = true)
     List<TaskEntity> findByScriptIdNative(@Param("scriptId") Long scriptId);
+    Optional<TaskEntity> findFirstByServerIdAndScriptIdOrderByCreatedAtDesc(Long serverId, Long scriptId);
+
+    // 2. Для getAllTasks: Найти все задачи, запущенные на серверах конкретного пользователя
+    List<TaskEntity> findAllByServerOwnerUsername(String username);
 }

@@ -28,6 +28,9 @@ public class TaskEntity implements BaseEntity {
     @CreationTimestamp // Автоматически ставит время создания
     private LocalDateTime createdAt;
 
+    private LocalDateTime startedAt;
+    private LocalDateTime finishedAt;
+
     // N:1 К Серверу
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "server_id", nullable = false)
