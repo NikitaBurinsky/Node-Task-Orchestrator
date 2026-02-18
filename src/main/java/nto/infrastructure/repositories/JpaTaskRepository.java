@@ -30,4 +30,8 @@ public interface JpaTaskRepository extends JpaRepository<TaskEntity, Long>, Task
 
     // 2. Для getAllTasks: Найти все задачи, запущенные на серверах конкретного пользователя
     List<TaskEntity> findAllByServerOwnerUsername(String username);
+
+    @Query("SELECT t FROM TaskEntity t WHERE t.sourceGroup.id = :groupId " +
+            "AND t.createdAt = (SELECT MAX(t2.createdAt) FROM TaskEntity t2 WHERE t2.sourceGroup.id = :groupId)")
+    List<TaskEntity> findLatestTasksByGroupId(@Param("groupId") Long groupId);
 }

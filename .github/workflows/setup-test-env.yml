@@ -1,0 +1,83 @@
+name: Deploy Test Infrastructure (VPS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      node_count:
+        description: 'Количество контейнеров (серверов)'
+        required: true
+        default: '3'
+        type: string
+      start_port:
+        description: 'Начальный порт (например, 2220 -> 2221, 2222...)'
+        required: true
+        default: '2220'
+        type: string
+
+jobs:
+  deploy-nodes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_KEY }}
+          port: 22 # Порт SSH самого VPS (обычно 22)
+          script: |
+            # === НАСТРОЙКИ ===
+            NODE_COUNT=${{ inputs.node_count }}
+            START_PORT=${{ inputs.start_port }}
+            WORK_DIR="~/nto_lab_infra"
+            IMAGE_NAME="nto-ssh-node"
+
+            echo "🚀 Начало развертывания $NODE_COUNT нод..."
+
+            # 1. Подготовка рабочей директории
+            mkdir -p $WORK_DIR
+            cd $WORK_DIR
+
+            # 2. Создание Dockerfile на лету (Alpine + SSH)
+            cat <<EOF > Dockerfile
+            FROM alpine:latest
+            RUN apk add --no-cache openssh bash
+            RUN ssh-keygen -A
+            RUN echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config && \\
+                echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config
+            # Пароль: root / toor
+            RUN echo 'root:toor' | chpasswd
+            EXPOSE 22
+            CMD ["/usr/sbin/sshd", "-D"]
+            EOF
+
+            # 3. Очистка старых контейнеров (Idempotency)
+            echo "🧹 Очистка старых контейнеров..."
+            # Останавливаем и удаляем все контейнеры, использующие этот образ
+            docker ps -a --filter "ancestor=$IMAGE_NAME" -q | xargs -r docker rm -f
+
+            # 4. Сборка образа
+            echo "🔨 Сборка Docker образа..."
+            docker build -t $IMAGE_NAME .
+
+            # 5. Запуск цикла создания контейнеров
+            echo "🔥 Запуск контейнеров..."
+            
+            for i in $(seq 1 $NODE_COUNT); do
+                # Вычисляем порт: 2220 + 1 = 2221
+                CURRENT_PORT=$((START_PORT + i))
+                CONTAINER_NAME="nto_node_\$i"
+            
+                # Запускаем контейнер
+                docker run -d \
+                  -p $CURRENT_PORT:22 \
+                  --name \$CONTAINER_NAME \
+                  --hostname "linux-server-\$i" \
+                  --restart unless-stopped \
+                  $IMAGE_NAME
+            
+                echo "✅ Создан \$CONTAINER_NAME на порту $CURRENT_PORT"
+            done
+
+            echo "🏁 Готово! Список запущенных нод:"
+            docker ps --filter "ancestor=$IMAGE_NAME" --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"

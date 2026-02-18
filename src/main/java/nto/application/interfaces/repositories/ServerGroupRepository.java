@@ -5,5 +5,4 @@ import java.util.Optional;
 
 public interface ServerGroupRepository {
     Optional<ServerGroupEntity> findById(Long id);
-    ServerGroupEntity save(ServerGroupEntity group);
 }

@@ -7,6 +7,7 @@ import nto.application.interfaces.services.MappingService;
 import nto.application.interfaces.services.ScriptExecutor;
 import nto.application.interfaces.services.ServerService;
 import nto.core.entities.ServerEntity;
+import nto.infrastructure.repositories.JpaServerRepository;
 import nto.infrastructure.repositories.JpaUserRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -18,7 +19,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ServerServiceImpl implements ServerService {
     private final ScriptExecutor scriptExecutor;
-    private final ServerRepository serverRepository;
+    private final JpaServerRepository serverRepository;
     private final MappingService mappingService;
     private final JpaUserRepository userRepository;
 

@@ -10,6 +10,7 @@ public record TaskDto(
         String output,
         Long serverId,
         Long scriptId,
+        Long sourceGroupId,
         LocalDateTime startedAt,
         LocalDateTime finishedAt
 ) implements BaseDto {}

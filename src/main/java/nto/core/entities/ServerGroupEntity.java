@@ -9,7 +9,8 @@ import java.util.Set;
 
 @Entity
 @Table(name = "server_groups")
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -22,8 +23,11 @@ public class ServerGroupEntity implements BaseEntity {
     @Column(nullable = false)
     private String name;
 
-    // ManyToMany. Обычно инициализируют Set, а не List, чтобы избежать дублей
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private UserEntity owner;
+
     @Builder.Default
-    @ManyToMany(mappedBy = "groups") // "groups" - поле в ServerEntity
+    @ManyToMany(mappedBy = "groups")
     private Set<ServerEntity> servers = new HashSet<>();
 }
