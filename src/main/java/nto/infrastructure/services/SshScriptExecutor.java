@@ -68,7 +68,8 @@ public class SshScriptExecutor implements ScriptExecutor {
             // Вынесли сложный цикл чтения вывода
             String output = readChannelOutput(channel, in, err);
 
-            TaskStatus finalStatus = (channel.getExitStatus() == 0) ? TaskStatus.SUCCESS : TaskStatus.FAILED;
+            TaskStatus finalStatus = (channel.getExitStatus() ==
+                0) ? TaskStatus.SUCCESS : TaskStatus.FAILED;
             task.setFinishedAt(java.time.LocalDateTime.now());
             updateStatus(task, finalStatus, output);
 
@@ -100,7 +101,8 @@ public class SshScriptExecutor implements ScriptExecutor {
         return session;
     }
 
-    private String readChannelOutput(ChannelExec channel, InputStream in, InputStream err) throws Exception {
+    private String readChannelOutput(ChannelExec channel, InputStream in, InputStream err) throws
+        Exception {
         StringBuilder outputBuffer = new StringBuilder();
         byte[] buffer = new byte[1024];
 
@@ -109,18 +111,21 @@ public class SshScriptExecutor implements ScriptExecutor {
             readStreamData(err, buffer, outputBuffer, "[ERR] ");
 
             if (channel.isClosed()) {
-                if (in.available() > 0) {
-                    continue;
+                if (in.available() == 0) {
+                    outputBuffer.append("\nExit Status: ").append(channel.getExitStatus());
+                    break;
                 }
-                outputBuffer.append("\nExit Status: ").append(channel.getExitStatus());
-                break;
+            } else {
+                Thread.sleep(100);
             }
-            Thread.sleep(100);
         }
+
         return outputBuffer.toString();
     }
 
-    private void readStreamData(InputStream stream, byte[] buffer, StringBuilder outputBuffer, String prefix) throws Exception {
+    private void readStreamData(InputStream stream, byte[] buffer,
+                                StringBuilder outputBuffer, String prefix)
+        throws Exception {
         while (stream.available() > 0) {
             int bytesRead = stream.read(buffer, 0, 1024);
             if (bytesRead < 0) {

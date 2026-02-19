@@ -39,7 +39,7 @@ public class ScriptProfile implements MapperProfile<ScriptEntity, ScriptDto> {
         return ScriptEntity.builder()
             .name(dto.name())
             .content(dto.content())
-            .isPublic(dto.isPublic() != null ? dto.isPublic() : false)
+            .isPublic(dto.isPublic() != null && dto.isPublic())
             .build();
     }
 
