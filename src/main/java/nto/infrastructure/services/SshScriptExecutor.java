@@ -51,73 +51,25 @@ public class SshScriptExecutor implements ScriptExecutor {
         ChannelExec channel = null;
 
         try {
-            ServerEntity server = task.getServer();
-            JSch jsch = new JSch();
-
-            // 1. Настройка сессии
-            // Порт по умолчанию 22, если не задан
-            int sshPort = server.getPort() != null ? server.getPort() : 22;
-            session = jsch.getSession(server.getUsername(), server.getIpAddress(), sshPort);
-            session.setPassword(server.getPassword());
-
-            // Отключаем проверку HostKey для простоты (в проде так нельзя, MITM атака!)
-            session.setConfig("StrictHostKeyChecking", "no");
-            // Таймаут подключения 10 сек
+            // Вынесли настройку сессии
+            session = createSshSession(task.getServer());
             session.connect(10000);
 
-            // 2. Открытие канала для выполнения команды
             channel = (ChannelExec) session.openChannel("exec");
-
-            // Вставляем скрипт.
-            // ВАЖНО: В реальной жизни нужно экранировать.
-            // Сейчас просто передаем content. Лучше обернуть в bash -c '...'
             channel.setCommand(task.getScript().getContent());
-
             channel.setInputStream(null);
 
-            // Получаем потоки вывода (stdout + stderr)
             InputStream in = channel.getInputStream();
             InputStream err = channel.getErrStream();
 
-            // 3. Запуск
             channel.connect();
 
-            // 4. Чтение вывода
-            StringBuilder outputBuffer = new StringBuilder();
-            byte[] tmp = new byte[1024];
+            // Вынесли сложный цикл чтения вывода
+            String output = readChannelOutput(channel, in, err);
 
-            while (true) {
-                while (in.available() > 0) {
-                    int i = in.read(tmp, 0, 1024);
-                    if (i < 0) {
-                        break;
-                    }
-                    outputBuffer.append(new String(tmp, 0, i, StandardCharsets.UTF_8));
-                }
-                while (err.available() > 0) {
-                    int i = err.read(tmp, 0, 1024);
-                    if (i < 0) {
-                        break;
-                    }
-                    outputBuffer.append("[ERR] ").append(
-                        new String(tmp, 0, i, StandardCharsets.UTF_8));
-                }
-
-                if (channel.isClosed()) {
-                    if (in.available() > 0) {
-                        continue;
-                    }
-                    outputBuffer.append("\nExit Status: ").append(channel.getExitStatus());
-                    break;
-                }
-                Thread.sleep(100);
-            }
-
-            // 5. Обработка результата
-            TaskStatus finalStatus = (channel.getExitStatus() ==
-                0) ? TaskStatus.SUCCESS : TaskStatus.FAILED;
+            TaskStatus finalStatus = (channel.getExitStatus() == 0) ? TaskStatus.SUCCESS : TaskStatus.FAILED;
             task.setFinishedAt(java.time.LocalDateTime.now());
-            updateStatus(task, finalStatus, outputBuffer.toString());
+            updateStatus(task, finalStatus, output);
 
             // Обновляем счетчики
             atomicCounter.incrementAndGet();
@@ -134,6 +86,47 @@ public class SshScriptExecutor implements ScriptExecutor {
             if (session != null) {
                 session.disconnect();
             }
+        }
+    }
+
+    private Session createSshSession(ServerEntity server) throws Exception {
+        JSch jsch = new JSch();
+        int sshPort = server.getPort() != null ? server.getPort() : 22;
+        Session session = jsch.getSession(server.getUsername(), server.getIpAddress(), sshPort);
+        session.setPassword(server.getPassword());
+        // Отключаем проверку HostKey для простоты (в проде так нельзя, MITM атака!)
+        session.setConfig("StrictHostKeyChecking", "no");
+        return session;
+    }
+
+    private String readChannelOutput(ChannelExec channel, InputStream in, InputStream err) throws Exception {
+        StringBuilder outputBuffer = new StringBuilder();
+        byte[] buffer = new byte[1024];
+
+        while (true) {
+            readStreamData(in, buffer, outputBuffer, "");
+            readStreamData(err, buffer, outputBuffer, "[ERR] ");
+
+            if (channel.isClosed()) {
+                if (in.available() > 0) {
+                    continue;
+                }
+                outputBuffer.append("\nExit Status: ").append(channel.getExitStatus());
+                break;
+            }
+            Thread.sleep(100);
+        }
+        return outputBuffer.toString();
+    }
+
+    private void readStreamData(InputStream stream, byte[] buffer, StringBuilder outputBuffer, String prefix) throws Exception {
+        while (stream.available() > 0) {
+            int bytesRead = stream.read(buffer, 0, 1024);
+            if (bytesRead < 0) {
+                break;
+            }
+            outputBuffer.append(prefix)
+                .append(new String(buffer, 0, bytesRead, StandardCharsets.UTF_8));
         }
     }
 

@@ -19,7 +19,7 @@ jobs:
             CONTAINER_NAME="nto_db_container"
             DB_NAME="nto_db"
             DB_USER="postgres"
-            DB_PASS="password"
+            DB_PASS="supermegrovibroblastsuperdupersocialist"
             HOST_PORT="5400"
             VOLUME_NAME="nto_pg_data"
 
