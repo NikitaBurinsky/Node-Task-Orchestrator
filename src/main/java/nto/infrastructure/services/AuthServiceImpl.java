@@ -29,7 +29,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public AuthResponseDto register(UserDto dto) {
         if (userRepository.findByUsername(dto.username()).isPresent()) {
-            throw new RuntimeException("Username is already taken");
+            throw new IllegalArgumentException("Username is already taken");
         }
 
         var user = UserEntity.builder()

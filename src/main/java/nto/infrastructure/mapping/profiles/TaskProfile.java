@@ -1,5 +1,6 @@
 package nto.infrastructure.mapping.profiles;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import nto.application.dto.TaskDto;
 import nto.application.interfaces.mapping.MapperProfile;
@@ -63,11 +64,11 @@ public class TaskProfile implements MapperProfile<TaskEntity, TaskDto> {
     private void resolveReferences(TaskDto dto, TaskEntity entity) {
         if (dto.serverId() != null) {
             entity.setServer(serverRepository.findById(dto.serverId())
-                .orElseThrow(() -> new RuntimeException("Server not found: " + dto.serverId())));
+                .orElseThrow(() -> new EntityNotFoundException("Server not found: " + dto.serverId())));
         }
         if (dto.scriptId() != null) {
             entity.setScript(scriptRepository.findById(dto.scriptId())
-                .orElseThrow(() -> new RuntimeException("Script not found: " + dto.scriptId())));
+                .orElseThrow(() -> new EntityNotFoundException("Script not found: " + dto.scriptId())));
         }
     }
 }

@@ -1,5 +1,6 @@
 package nto.infrastructure.services;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import nto.application.dto.ServerDto;
 import nto.application.interfaces.services.MappingService;
@@ -8,6 +9,7 @@ import nto.application.interfaces.services.ServerService;
 import nto.core.entities.ServerEntity;
 import nto.infrastructure.repositories.JpaServerRepository;
 import nto.infrastructure.repositories.JpaUserRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,7 +38,7 @@ public class ServerServiceImpl implements ServerService {
     @Transactional(readOnly = true)
     public ServerDto getServerById(Long id) {
         ServerEntity server = serverRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Server not found"));
+            .orElseThrow(() -> new EntityNotFoundException("Server not found"));
 
         return mappingService.mapToDto(server, ServerDto.class);
     }
@@ -60,7 +62,7 @@ public class ServerServiceImpl implements ServerService {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
         nto.core.entities.UserEntity currentUser = userRepository.findByUsername(username)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new EntityNotFoundException("User not found"));
 
         ServerEntity entity = mappingService.mapToEntity(dto, ServerEntity.class);
 
@@ -76,10 +78,10 @@ public class ServerServiceImpl implements ServerService {
     public boolean checkConnection(Long id) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         ServerEntity server = serverRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Server not found"));
+            .orElseThrow(() -> new EntityNotFoundException("Server not found"));
 
         if (!server.getOwner().getUsername().equals(username)) {
-            throw new RuntimeException("Access Denied: You do not own this server");
+            throw new AccessDeniedException("Access Denied: You do not own this server");
         }
         return scriptExecutor.ping(id);
     }

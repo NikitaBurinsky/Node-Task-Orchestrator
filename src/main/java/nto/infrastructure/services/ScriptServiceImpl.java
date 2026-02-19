@@ -1,5 +1,6 @@
 package nto.infrastructure.services;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import nto.application.dto.ScriptDto;
 import nto.application.interfaces.services.MappingService;
@@ -35,7 +36,7 @@ public class ScriptServiceImpl implements ScriptService {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
         UserEntity currentUser = userRepository.findByUsername(username)
-            .orElseThrow(() -> new RuntimeException("Authenticated user not found in DB"));
+            .orElseThrow(() -> new EntityNotFoundException("Authenticated user not found in DB"));
 
         ScriptEntity entity = mappingService.mapToEntity(dto, ScriptEntity.class);
 
@@ -50,7 +51,7 @@ public class ScriptServiceImpl implements ScriptService {
     @Transactional(readOnly = true)
     public ScriptDto getScriptById(Long id) {
         ScriptEntity script = scriptRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Script not found with id: " + id));
+            .orElseThrow(() -> new EntityNotFoundException("Script not found with id: " + id));
 
         return mappingService.mapToDto(script, ScriptDto.class);
     }
@@ -68,7 +69,7 @@ public class ScriptServiceImpl implements ScriptService {
     @Transactional
     public void deleteScript(Long id) {
         if (!scriptRepository.findById(id).isPresent()) {
-            throw new RuntimeException("Script not found with id: " + id);
+            throw new EntityNotFoundException("Script not found with id: " + id);
         }
         //TODO
         scriptRepository.deleteById(

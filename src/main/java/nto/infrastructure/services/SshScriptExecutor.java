@@ -3,6 +3,7 @@ package nto.infrastructure.services;
 import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import nto.application.interfaces.repositories.ServerRepository;
@@ -43,7 +44,7 @@ public class SshScriptExecutor implements ScriptExecutor {
         log.info("[SSH] Starting execution for Task ID: {}", taskId);
 
         TaskEntity task = taskRepository.findById(taskId)
-            .orElseThrow(() -> new RuntimeException("Task not found"));
+            .orElseThrow(() -> new EntityNotFoundException("Task not found"));
         task.setStartedAt(java.time.LocalDateTime.now());
         updateStatus(task, TaskStatus.RUNNING, "Connecting via SSH...");
 
@@ -135,7 +136,7 @@ public class SshScriptExecutor implements ScriptExecutor {
         log.info("[SSH] Pinging server ID: {}", serverId);
 
         ServerEntity server = serverRepository.findById(serverId)
-            .orElseThrow(() -> new RuntimeException("Server not found: " + serverId));
+            .orElseThrow(() -> new EntityNotFoundException("Server not found: " + serverId));
 
         Session session = null;
         try {

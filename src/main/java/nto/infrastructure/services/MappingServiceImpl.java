@@ -69,7 +69,7 @@ public class MappingServiceImpl implements MappingService {
         String key = buildKey(entityClass, dtoClass);
         MapperProfile profile = profiles.get(key);
         if (profile == null) {
-            throw new RuntimeException("Mapper profile not found for pair: "
+            throw new IllegalStateException("Mapper profile not found for pair: "
                 + entityClass.getSimpleName() + " <-> " + dtoClass.getSimpleName());
         }
         return profile;

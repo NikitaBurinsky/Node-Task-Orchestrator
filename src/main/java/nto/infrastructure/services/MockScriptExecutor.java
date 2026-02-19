@@ -1,5 +1,6 @@
 package nto.infrastructure.services;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import nto.application.interfaces.repositories.ServerRepository;
@@ -60,7 +61,7 @@ public class MockScriptExecutor implements ScriptExecutor {
         log.info("Starting execution for Task ID: {}", taskId);
 
         TaskEntity task = taskRepository.findById(taskId)
-            .orElseThrow(() -> new RuntimeException("Task not found async: " + taskId));
+            .orElseThrow(() -> new EntityNotFoundException("Task not found async: " + taskId));
 
         // 1. Ставим статус RUNNING
         task.setStartedAt(java.time.LocalDateTime.now());

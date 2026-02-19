@@ -1,5 +1,6 @@
 package nto.infrastructure.services;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import nto.application.dto.ServerGroupDto;
 import nto.application.dto.TaskDto;
@@ -18,6 +19,7 @@ import nto.infrastructure.repositories.JpaServerGroupRepository;
 import nto.infrastructure.repositories.JpaServerRepository;
 import nto.infrastructure.repositories.JpaTaskRepository;
 import nto.infrastructure.repositories.JpaUserRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,7 +48,7 @@ public class ServerGroupServiceImpl implements ServerGroupService {
     public ServerGroupDto createGroup(ServerGroupDto dto) {
         String username = getCurrentUsername();
         UserEntity user = userRepository.findByUsername(username)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new EntityNotFoundException("User not found"));
 
         ServerGroupEntity entity = mappingService.mapToEntity(dto, ServerGroupEntity.class);
         entity.setOwner(user);
@@ -124,14 +126,14 @@ public class ServerGroupServiceImpl implements ServerGroupService {
         ServerGroupEntity group = getGroupIfOwned(groupId);
 
         ScriptEntity script = scriptRepository.findById(scriptId)
-            .orElseThrow(() -> new RuntimeException("Script not found"));
+            .orElseThrow(() -> new EntityNotFoundException("Script not found"));
 
         if (!script.getIsPublic() && !script.getOwner().getUsername().equals(username)) {
-            throw new RuntimeException("Access Denied to Script");
+            throw new AccessDeniedException("Access Denied to Script");
         }
 
         if (group.getServers().isEmpty()) {
-            throw new RuntimeException("Group is empty");
+            throw new IllegalStateException("Group is empty");
         }
 
         // Создаем задачи
@@ -163,18 +165,18 @@ public class ServerGroupServiceImpl implements ServerGroupService {
 
     private ServerGroupEntity getGroupIfOwned(Long id) {
         ServerGroupEntity group = groupRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Group not found"));
+            .orElseThrow(() -> new EntityNotFoundException("Group not found"));
         if (!group.getOwner().getUsername().equals(getCurrentUsername())) {
-            throw new RuntimeException("Access Denied: Not your group");
+            throw new AccessDeniedException("Access Denied: Not your group");
         }
         return group;
     }
 
     private ServerEntity getServerIfOwned(Long id) {
         ServerEntity server = serverRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Server not found"));
+            .orElseThrow(() -> new EntityNotFoundException("Server not found"));
         if (!server.getOwner().getUsername().equals(getCurrentUsername())) {
-            throw new RuntimeException("Access Denied: Not your server");
+            throw new AccessDeniedException("Access Denied: Not your server");
         }
         return server;
     }

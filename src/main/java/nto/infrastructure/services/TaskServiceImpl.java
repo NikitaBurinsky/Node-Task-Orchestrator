@@ -1,5 +1,6 @@
 package nto.infrastructure.services;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import nto.application.annotations.LogExecutionTime;
 import nto.application.dto.BulkTaskRequestDto;
@@ -15,6 +16,7 @@ import nto.core.entities.TaskEntity;
 import nto.core.enums.TaskStatus;
 import nto.infrastructure.cache.TaskStatusCache;
 import nto.infrastructure.repositories.JpaTaskRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,10 +41,8 @@ public class TaskServiceImpl implements TaskService {
     @LogExecutionTime
     public TaskDto createTask(TaskDto dto) {
         String username = getCurrentUsername();
-
         ScriptEntity script = getScriptIfAvailable(dto.scriptId(), username);
         ServerEntity server = getServerIfOwned(dto.serverId(), username);
-
         return createAndSaveTask(script, server);
     }
 
@@ -60,8 +60,7 @@ public class TaskServiceImpl implements TaskService {
             return mappingService.mapToDto(cached, TaskDto.class);
         }
 
-        // 2. Cache Miss -> DB Hit (Закрыли TODO)
-        // Ищем последнюю запись в БД. Если нет - возвращаем null (или можно кидать 404, зависит от фронта)
+        // 2. Cache Miss -> DB Hit
         return taskRepository.findFirstByServerIdAndScriptIdOrderByCreatedAtDesc(serverId, scriptId)
             .map(entity -> mappingService.mapToDto(entity, TaskDto.class))
             .orElse(null);
@@ -79,10 +78,10 @@ public class TaskServiceImpl implements TaskService {
         // 2. Пакетная загрузка серверов
         List<ServerEntity> foundServers = serverRepository.findAllById(dto.serverIds());
 
-        // 3. Валидация целостности списка (все ли ID найдены в базе)
+        // 3. Валидация целостности списка
         validateServersExistence(foundServers, dto.serverIds());
 
-        // 4. Валидация прав (все ли серверы принадлежат юзеру)
+        // 4. Валидация прав
         foundServers.forEach(server -> validateServerOwnership(server, username));
 
         // 5. Создание и сохранение задач
@@ -107,11 +106,11 @@ public class TaskServiceImpl implements TaskService {
         String username = getCurrentUsername();
 
         TaskEntity task = taskRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Task not found: " + id));
+            .orElseThrow(() -> new EntityNotFoundException("Task not found: " + id));
 
-        // Security Check: Пользователь может видеть задачу только если он владелец сервера, на котором она выполнялась.
+        // Security Check
         if (!task.getServer().getOwner().getUsername().equals(username)) {
-            throw new RuntimeException(
+            throw new AccessDeniedException(
                 "Access Denied: Task does not belong to your server context.");
         }
 
@@ -135,49 +134,37 @@ public class TaskServiceImpl implements TaskService {
         return SecurityContextHolder.getContext().getAuthentication().getName();
     }
 
-    /**
-     * Получает скрипт и проверяет права доступа (Владелец или Публичный).
-     */
     private ScriptEntity getScriptIfAvailable(Long scriptId, String username) {
         ScriptEntity script = scriptRepository.findById(scriptId)
-            .orElseThrow(() -> new RuntimeException("Script not found: " + scriptId));
+            .orElseThrow(() -> new EntityNotFoundException("Script not found: " + scriptId));
 
         boolean isOwner = script.getOwner().getUsername().equals(username);
         boolean isPublic = Boolean.TRUE.equals(script.getIsPublic());
 
         if (!isOwner && !isPublic) {
-            throw new RuntimeException(
+            throw new AccessDeniedException(
                 "Access Denied: Script is private and does not belong to you.");
         }
         return script;
     }
 
-    /**
-     * Получает сервер и проверяет права владельца.
-     */
     private ServerEntity getServerIfOwned(Long serverId, String username) {
         ServerEntity server = serverRepository.findById(serverId)
-            .orElseThrow(() -> new RuntimeException("Server not found: " + serverId));
+            .orElseThrow(() -> new EntityNotFoundException("Server not found: " + serverId));
 
         validateServerOwnership(server, username);
         return server;
     }
 
-    /**
-     * Проверяет, что сервер принадлежит пользователю.
-     */
     private void validateServerOwnership(ServerEntity server, String username) {
         if (!server.getOwner().getUsername().equals(username)) {
-            throw new RuntimeException(
+            throw new AccessDeniedException(
                 "Access Denied: Server " + server.getHostname() + " (ID: " + server.getId() +
                     ") does not belong to you."
             );
         }
     }
 
-    /**
-     * Проверяет, что все запрошенные ID серверов были найдены в БД.
-     */
     private void validateServersExistence(List<ServerEntity> foundServers,
                                           List<Long> requestedIds) {
         if (foundServers.size() != requestedIds.size()) {
@@ -188,7 +175,8 @@ public class TaskServiceImpl implements TaskService {
             List<Long> missingIds = requestedIds.stream()
                 .filter(id -> !foundIds.contains(id))
                 .toList();
-            throw new RuntimeException("Rollback! Servers not found: " + missingIds);
+
+            throw new IllegalArgumentException("Rollback! Servers not found: " + missingIds);
         }
     }
 
