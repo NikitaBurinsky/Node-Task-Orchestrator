@@ -24,13 +24,13 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_KEY }}
-          port: 22 # Порт SSH самого VPS (обычно 22)
+          port: 22
           script: |
             # === НАСТРОЙКИ ===
             NODE_COUNT=${{ inputs.node_count }}
             START_PORT=${{ inputs.start_port }}
-            WORK_DIR="~/nto_test_infra"
-            IMAGE_NAME="nto-ssh-node"
+            WORK_DIR=~/nto_test_infra
+            IMAGE_NAME=nto-ssh-node
             
             echo "🚀 Начало развертывания $NODE_COUNT нод..."
             
@@ -53,30 +53,57 @@ jobs:
             
             # 3. Очистка старых контейнеров (Idempotency)
             echo "🧹 Очистка старых контейнеров..."
-            docker ps -a --filter "ancestor=$IMAGE_NAME" -q | xargs -r docker rm -f
+            # Останавливаем и удаляем контейнеры
+            for i in $(seq 1 $NODE_COUNT); do
+              CONTAINER_NAME="nto_node_$i"
+              if docker ps -a --format '{{.Names}}' | grep -q "^$CONTAINER_NAME$"; then
+                echo "Удаление $CONTAINER_NAME..."
+                docker rm -f $CONTAINER_NAME 2>/dev/null || true
+              fi
+            done
             
-            # 4. Сборка образа
+            # 4. Сборка образа (только если не существует)
             echo "🔨 Сборка Docker образа..."
-            docker build -t $IMAGE_NAME .
+            if ! docker images | grep -q "$IMAGE_NAME"; then
+              docker build -t $IMAGE_NAME .
+            else
+              echo "Образ $IMAGE_NAME уже существует, пропускаем сборку"
+            fi
             
             # 5. Запуск цикла создания контейнеров
             echo "🔥 Запуск контейнеров..."
             
             for i in $(seq 1 $NODE_COUNT); do
-                # Вычисляем порт: 2220 + 1 = 2221
-                CURRENT_PORT=$((START_PORT + i))
-                CONTAINER_NAME="nto_node_$i"
+              # Вычисляем порт: START_PORT + i
+              CURRENT_PORT=$((START_PORT + i))
+              CONTAINER_NAME="nto_node_$i"
             
-                # Запускаем контейнер (убраны \$ перед переменными)
-                docker run -d \
-                  -p $CURRENT_PORT:22 \
-                  --name $CONTAINER_NAME \
-                  --hostname "linux-server-$i" \
-                  --restart unless-stopped \
-                  $IMAGE_NAME
+              # Проверяем, не занят ли порт
+              if docker ps -a --format '{{.Ports}}' | grep -q "0.0.0.0:$CURRENT_PORT"; then
+                echo "⚠️ Порт $CURRENT_PORT уже занят, пропускаем создание $CONTAINER_NAME"
+                continue
+              fi
             
-                echo "✅ Создан $CONTAINER_NAME на порту $CURRENT_PORT"
+              # Запускаем контейнер
+              docker run -d \
+                -p $CURRENT_PORT:22 \
+                --name $CONTAINER_NAME \
+                --hostname "linux-server-$i" \
+                --restart unless-stopped \
+                $IMAGE_NAME
+            
+              echo "✅ Создан $CONTAINER_NAME на порту $CURRENT_PORT"
             done
             
             echo "🏁 Готово! Список запущенных нод:"
-            docker ps --filter "ancestor=$IMAGE_NAME" --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"
+            echo "========================"
+            docker ps --filter "name=nto_node" --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"
+            
+            echo ""
+            echo "📝 Информация для подключения:"
+            echo "Пользователь: root"
+            echo "Пароль: toor"
+            for i in $(seq 1 $NODE_COUNT); do
+              CURRENT_PORT=$((START_PORT + i))
+              echo "Нода $i: ssh root@${{ secrets.VPS_HOST }} -p $CURRENT_PORT"
+            done
