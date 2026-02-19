@@ -59,10 +59,6 @@ public class MockScriptExecutor implements ScriptExecutor {
         updateStatus(task, TaskStatus.RUNNING, "Initializing connection...");
 
         try {
-            // 2. Имитация долгой работы (SSH Handshake + Execution)
-            // Задержка от 1 до 3 секунд
-            Thread.sleep(1000 + new Random().nextInt(2000));
-
             // Имитируем вывод скрипта
             String fakeOutput = "Connected to " + task.getServer().getHostname() + "\n" +
                 "Executing: " + task.getScript().getName() + "\n" +
@@ -73,7 +69,6 @@ public class MockScriptExecutor implements ScriptExecutor {
             updateStatus(task, TaskStatus.SUCCESS, fakeOutput);
             // --- DEMO RACE CONDITION ---
             incrementCounters();
-            
         } catch (Exception e) {
             log.error("Task failed", e);
             task.setFinishedAt(java.time.LocalDateTime.now());
