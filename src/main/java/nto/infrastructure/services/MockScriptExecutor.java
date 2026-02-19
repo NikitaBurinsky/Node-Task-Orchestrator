@@ -45,7 +45,7 @@ public class MockScriptExecutor implements ScriptExecutor {
         try {
             Thread.sleep(200);
         } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            return false;
         }
         // Имитируем успех
         return true;
