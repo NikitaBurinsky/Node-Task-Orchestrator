@@ -1,3 +1,4 @@
 package nto.application.dto;
 
-public record AuthRequestDto(String username, String password) {}
+public record AuthRequestDto(String username, String password) {
+}

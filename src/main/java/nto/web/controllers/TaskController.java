@@ -8,7 +8,13 @@ import nto.application.dto.BulkTaskRequestDto;
 import nto.application.dto.TaskDto;
 import nto.application.interfaces.services.TaskService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -28,10 +34,9 @@ public class TaskController {
     }
 
     @GetMapping("/status")
-    @Operation(summary = "Получить статус из кэша", description = "Быстрый опрос статуса (Hot Data) без лишних запросов в БД")
     public ResponseEntity<TaskDto> getTaskStatus(
-            @RequestParam Long serverId,
-            @RequestParam Long scriptId) {
+        @RequestParam Long serverId,
+        @RequestParam Long scriptId) {
 
         TaskDto task = taskService.getLastStatus(serverId, scriptId);
 

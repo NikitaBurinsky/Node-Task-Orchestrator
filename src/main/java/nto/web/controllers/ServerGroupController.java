@@ -8,7 +8,14 @@ import nto.application.dto.ServerGroupDto;
 import nto.application.dto.TaskDto;
 import nto.application.interfaces.services.ServerGroupService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
@@ -29,7 +36,7 @@ public class ServerGroupController {
 
     @GetMapping("/{id}/status/last")
     @Operation(summary = "Статус последнего запуска",
-            description = "Возвращает список задач, созданных в рамках последнего массового запуска на этой группе")
+        description = "Возвращает список задач, созданных в рамках последнего массового запуска на этой группе")
     public ResponseEntity<List<TaskDto>> getLastGroupStatus(@PathVariable Long id) {
         return ResponseEntity.ok(groupService.getLastGroupExecutionStatus(id));
     }
@@ -63,7 +70,8 @@ public class ServerGroupController {
 
     @DeleteMapping("/{groupId}/servers/{serverId}")
     @Operation(summary = "Убрать сервер", description = "Исключает сервер из группы")
-    public ResponseEntity<Void> removeServer(@PathVariable Long groupId, @PathVariable Long serverId) {
+    public ResponseEntity<Void> removeServer(@PathVariable Long groupId,
+                                             @PathVariable Long serverId) {
         groupService.removeServerFromGroup(groupId, serverId);
         return ResponseEntity.ok().build();
     }
@@ -79,8 +87,8 @@ public class ServerGroupController {
     @PostMapping("/{id}/execute")
     @Operation(summary = "Запуск скрипта на группе", description = "Создает задачи для всех серверов группы")
     public ResponseEntity<List<TaskDto>> executeScript(
-            @PathVariable Long id,
-            @RequestParam Long scriptId
+        @PathVariable Long id,
+        @RequestParam Long scriptId
     ) {
         return ResponseEntity.ok(groupService.executeScriptOnGroup(id, scriptId));
     }

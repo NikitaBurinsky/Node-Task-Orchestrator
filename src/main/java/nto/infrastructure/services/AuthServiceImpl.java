@@ -7,7 +7,6 @@ import nto.application.dto.UserDto;
 import nto.application.interfaces.repositories.UserRepository;
 import nto.application.interfaces.services.AuthService;
 import nto.core.entities.UserEntity;
-import nto.infrastructure.repositories.JpaUserRepository;
 import nto.infrastructure.security.JwtUtils;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -34,9 +33,9 @@ public class AuthServiceImpl implements AuthService {
         }
 
         var user = UserEntity.builder()
-                .username(dto.username())
-                .password(passwordEncoder.encode(dto.password())) // Хэшируем пароль
-                .build();
+            .username(dto.username())
+            .password(passwordEncoder.encode(dto.password())) // Хэшируем пароль
+            .build();
 
         userRepository.save(user);
 
@@ -49,7 +48,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AuthResponseDto login(AuthRequestDto dto) {
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(dto.username(), dto.password())
+            new UsernamePasswordAuthenticationToken(dto.username(), dto.password())
         );
 
         var userDetails = userDetailsService.loadUserByUsername(dto.username());

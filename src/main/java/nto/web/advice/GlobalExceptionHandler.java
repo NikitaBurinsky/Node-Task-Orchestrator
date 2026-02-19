@@ -16,7 +16,8 @@ public class GlobalExceptionHandler {
 
     // Обработка ошибок валидации (@Valid)
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {
+    public ResponseEntity<Map<String, Object>> handleValidationExceptions(
+        MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
 
         ex.getBindingResult().getAllErrors().forEach((error) -> {
@@ -35,7 +36,8 @@ public class GlobalExceptionHandler {
     }
 
     // Хелпер для JSON ответа
-    private ResponseEntity<Map<String, Object>> buildResponse(HttpStatus status, String error, Object details) {
+    private ResponseEntity<Map<String, Object>> buildResponse(HttpStatus status, String error,
+                                                              Object details) {
         Map<String, Object> response = new HashMap<>();
         response.put("timestamp", LocalDateTime.now());
         response.put("status", status.value());

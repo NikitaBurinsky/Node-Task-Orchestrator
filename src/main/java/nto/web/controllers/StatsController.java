@@ -19,9 +19,9 @@ public class StatsController {
     @GetMapping
     public ResponseEntity<Map<String, Long>> getStats() {
         return ResponseEntity.ok(Map.of(
-                "atomic_safe_counter", scriptExecutor.getSuccessCountAtomic(),
-                "unsafe_counter", scriptExecutor.getSuccessCountUnsafe(),
-                "diff", scriptExecutor.getSuccessCountAtomic() - scriptExecutor.getSuccessCountUnsafe()
+            "atomic_safe_counter", scriptExecutor.getSuccessCountAtomic(),
+            "unsafe_counter", scriptExecutor.getSuccessCountUnsafe(),
+            "diff", scriptExecutor.getSuccessCountAtomic() - scriptExecutor.getSuccessCountUnsafe()
         ));
     }
 }

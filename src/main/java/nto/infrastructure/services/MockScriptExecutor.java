@@ -31,6 +31,7 @@ public class MockScriptExecutor implements ScriptExecutor {
     // Счетчики для Лабы 6 (Race Condition Demo)
     private final AtomicLong atomicCounter = new AtomicLong(0);
     private long unsafeCounter = 0; // Не защищен от гонки!
+
     @Override
     public boolean ping(Long serverId) {
         log.info("[Mock] Pinging server {}", serverId);
@@ -50,6 +51,7 @@ public class MockScriptExecutor implements ScriptExecutor {
         // Имитируем успех с вероятностью 90%
         return new Random().nextInt(10) > 0;
     }
+
     @Override
     @Async("taskExecutor") // Запуск в отдельном потоке
     // REQUIRES_NEW: Важно! Создаем НОВУЮ транзакцию, независимую от той, где задача создавалась.
@@ -58,7 +60,7 @@ public class MockScriptExecutor implements ScriptExecutor {
         log.info("Starting execution for Task ID: {}", taskId);
 
         TaskEntity task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Task not found async: " + taskId));
+            .orElseThrow(() -> new RuntimeException("Task not found async: " + taskId));
 
         // 1. Ставим статус RUNNING
         task.setStartedAt(java.time.LocalDateTime.now());
@@ -71,8 +73,8 @@ public class MockScriptExecutor implements ScriptExecutor {
 
             // Имитируем вывод скрипта
             String fakeOutput = "Connected to " + task.getServer().getHostname() + "\n" +
-                    "Executing: " + task.getScript().getName() + "\n" +
-                    "Done. Exit code 0.";
+                "Executing: " + task.getScript().getName() + "\n" +
+                "Done. Exit code 0.";
 
             // 3. Успешное завершение
             task.setFinishedAt(java.time.LocalDateTime.now());

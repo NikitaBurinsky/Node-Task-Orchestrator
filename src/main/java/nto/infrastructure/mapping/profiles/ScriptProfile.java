@@ -23,12 +23,12 @@ public class ScriptProfile implements MapperProfile<ScriptEntity, ScriptDto> {
     @Override
     public ScriptDto mapToDto(ScriptEntity entity) {
         return new ScriptDto(
-                entity.getId(),
-                entity.getName(),
-                entity.getContent(),
-                // Безопасно достаем имя владельца
-                entity.getOwner() != null ? entity.getOwner().getUsername() : null,
-                entity.getIsPublic()
+            entity.getId(),
+            entity.getName(),
+            entity.getContent(),
+            // Безопасно достаем имя владельца
+            entity.getOwner() != null ? entity.getOwner().getUsername() : null,
+            entity.getIsPublic()
         );
     }
 
@@ -37,10 +37,10 @@ public class ScriptProfile implements MapperProfile<ScriptEntity, ScriptDto> {
         // При создании из DTO мы игнорируем ownerName,
         // так как владелец будет установлен в Service из SecurityContext
         return ScriptEntity.builder()
-                .name(dto.name())
-                .content(dto.content())
-                .isPublic(dto.isPublic() != null ? dto.isPublic() : false)
-                .build();
+            .name(dto.name())
+            .content(dto.content())
+            .isPublic(dto.isPublic() != null ? dto.isPublic() : false)
+            .build();
     }
 
     @Override

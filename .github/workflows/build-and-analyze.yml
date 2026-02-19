@@ -1,0 +1,48 @@
+name: Build and Code Quality
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build:
+    name: Build, Checkstyle and SonarQube
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Важно: SonarCloud требует полную историю коммитов для анализа (Blame/Debt)
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin' # Популярный дистрибутив OpenJDK
+
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
+          restore-keys: ${{ runner.os }}-gradle
+
+      # Делаем скрипт Gradle исполняемым (эквивалент chmod +x)
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # Запускаем сборку, прогоняем тесты, Checkstyle и отправляем отчет в Sonar
+      - name: Build and analyze
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Встроенный токен GH, нужен для PR комментов
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}    # Токен, который ты добавил в Secrets
+        run: ./gradlew build sonar --info

@@ -1,10 +1,23 @@
 package nto.core.entities;
 
-import jakarta.persistence.*;
-import lombok.*;
-
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import nto.core.entities.base.BaseEntity;
 
 import java.util.ArrayList;
@@ -14,7 +27,8 @@ import java.util.Set;
 
 @Entity
 @Table(name = "servers")
-@Getter // Используем Getter/Setter вместо @Data для сущностей со сложными связями (избегаем StackOverflow в toString/hashCode)
+@Getter
+// Используем Getter/Setter вместо @Data для сущностей со сложными связями (избегаем StackOverflow в toString/hashCode)
 @Setter
 @Builder
 @NoArgsConstructor
@@ -37,24 +51,18 @@ public class ServerEntity implements BaseEntity {
     private String username;
 
     private String password;
-    //TODO
-    // private String privateKey; // Либо ключ (в будущем)
 
-    // --- Связи ---
-
-    // 1. Владелец
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id") // nullable = true пока не реализована авторизация, потом false
+    @JoinColumn(name = "user_id")
     private UserEntity owner;
 
-    // 2. Группы (M:N)
-    // Владелец связи (Owner side) - тот, кто имеет @JoinTable
+    // (M:N)
     @Builder.Default
     @ManyToMany
     @JoinTable(
-            name = "server_group_link",
-            joinColumns = @JoinColumn(name = "server_id"),
-            inverseJoinColumns = @JoinColumn(name = "group_id")
+        name = "server_group_link",
+        joinColumns = @JoinColumn(name = "server_id"),
+        inverseJoinColumns = @JoinColumn(name = "group_id")
     )
     private Set<ServerGroupEntity> groups = new HashSet<>();
 

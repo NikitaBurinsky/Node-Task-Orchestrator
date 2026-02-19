@@ -30,7 +30,7 @@ public class SshScriptExecutor implements ScriptExecutor {
 
     private final JpaTaskRepository taskRepository;
     private final TaskStatusCache statusCache;
-    private  final ServerRepository serverRepository;
+    private final ServerRepository serverRepository;
 
     // Счетчикi
     private final AtomicLong atomicCounter = new AtomicLong(0);
@@ -43,7 +43,7 @@ public class SshScriptExecutor implements ScriptExecutor {
         log.info("[SSH] Starting execution for Task ID: {}", taskId);
 
         TaskEntity task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Task not found"));
+            .orElseThrow(() -> new RuntimeException("Task not found"));
         task.setStartedAt(java.time.LocalDateTime.now());
         updateStatus(task, TaskStatus.RUNNING, "Connecting via SSH...");
 
@@ -89,17 +89,24 @@ public class SshScriptExecutor implements ScriptExecutor {
             while (true) {
                 while (in.available() > 0) {
                     int i = in.read(tmp, 0, 1024);
-                    if (i < 0) break;
+                    if (i < 0) {
+                        break;
+                    }
                     outputBuffer.append(new String(tmp, 0, i, StandardCharsets.UTF_8));
                 }
                 while (err.available() > 0) {
                     int i = err.read(tmp, 0, 1024);
-                    if (i < 0) break;
-                    outputBuffer.append("[ERR] ").append(new String(tmp, 0, i, StandardCharsets.UTF_8));
+                    if (i < 0) {
+                        break;
+                    }
+                    outputBuffer.append("[ERR] ").append(
+                        new String(tmp, 0, i, StandardCharsets.UTF_8));
                 }
 
                 if (channel.isClosed()) {
-                    if (in.available() > 0) continue;
+                    if (in.available() > 0) {
+                        continue;
+                    }
                     outputBuffer.append("\nExit Status: ").append(channel.getExitStatus());
                     break;
                 }
@@ -107,7 +114,8 @@ public class SshScriptExecutor implements ScriptExecutor {
             }
 
             // 5. Обработка результата
-            TaskStatus finalStatus = (channel.getExitStatus() == 0) ? TaskStatus.SUCCESS : TaskStatus.FAILED;
+            TaskStatus finalStatus = (channel.getExitStatus() ==
+                0) ? TaskStatus.SUCCESS : TaskStatus.FAILED;
             task.setFinishedAt(java.time.LocalDateTime.now());
             updateStatus(task, finalStatus, outputBuffer.toString());
 
@@ -120,16 +128,21 @@ public class SshScriptExecutor implements ScriptExecutor {
             task.setFinishedAt(java.time.LocalDateTime.now());
             updateStatus(task, TaskStatus.FAILED, "SSH Error: " + e.getMessage());
         } finally {
-            if (channel != null) channel.disconnect();
-            if (session != null) session.disconnect();
+            if (channel != null) {
+                channel.disconnect();
+            }
+            if (session != null) {
+                session.disconnect();
+            }
         }
     }
+
     @Override
     public boolean ping(Long serverId) {
         log.info("[SSH] Pinging server ID: {}", serverId);
 
         ServerEntity server = serverRepository.findById(serverId)
-                .orElseThrow(() -> new RuntimeException("Server not found: " + serverId));
+            .orElseThrow(() -> new RuntimeException("Server not found: " + serverId));
 
         Session session = null;
         try {
@@ -138,7 +151,8 @@ public class SshScriptExecutor implements ScriptExecutor {
 
             session = jsch.getSession(server.getUsername(), server.getIpAddress(), sshPort);
             session.setPassword(server.getPassword());
-            session.setConfig("StrictHostKeyChecking", "no"); // Внимание: для MVP ок, в проде - known_hosts
+            session.setConfig("StrictHostKeyChecking",
+                "no"); // Внимание: для MVP ок, в проде - known_hosts
 
             // Пытаемся подключиться с таймаутом 3 секунды (для пинга достаточно)
             session.connect(3000);
@@ -153,6 +167,7 @@ public class SshScriptExecutor implements ScriptExecutor {
             }
         }
     }
+
     private void updateStatus(TaskEntity task, TaskStatus status, String output) {
         task.setStatus(status);
         task.setOutput(output);

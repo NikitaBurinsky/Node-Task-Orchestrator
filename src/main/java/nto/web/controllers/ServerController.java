@@ -6,7 +6,14 @@ import lombok.RequiredArgsConstructor;
 import nto.application.dto.ServerDto;
 import nto.application.interfaces.services.ServerService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 
 import java.util.List;
 import java.util.Map;
@@ -19,7 +26,6 @@ public class ServerController {
     private final ServerService serverService;
 
     @PostMapping
-    // Добавили @Valid. Если валидация не пройдет, Spring выбросит MethodArgumentNotValidException
     public ResponseEntity<ServerDto> create(@RequestBody @Valid ServerDto dto) {
         return ResponseEntity.ok(serverService.createServer(dto));
     }
@@ -28,10 +34,12 @@ public class ServerController {
     public ResponseEntity<ServerDto> getById(@PathVariable Long id) {
         return ResponseEntity.ok(serverService.getServerById(id));
     }
+
     @GetMapping
     public ResponseEntity<List<ServerDto>> getAll(@RequestParam(required = false) String hostname) {
         return ResponseEntity.ok(serverService.getAllServers());
     }
+
     // GET /api/servers?hostname=srv-01
     @GetMapping("/{id}/ping")
     @Operation(summary = "Проверка доступности", description = "Пытается установить SSH соединение с сервером")
@@ -39,9 +47,9 @@ public class ServerController {
         boolean isAlive = serverService.checkConnection(id);
 
         return ResponseEntity.ok(Map.of(
-                "serverId", id,
-                "alive", isAlive,
-                "timestamp", java.time.LocalDateTime.now()
+            "serverId", id,
+            "alive", isAlive,
+            "timestamp", java.time.LocalDateTime.now()
         ));
     }
 }

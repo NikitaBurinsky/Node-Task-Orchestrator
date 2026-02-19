@@ -28,22 +28,22 @@ public class ServerGroupProfile implements MapperProfile<ServerGroupEntity, Serv
     @Override
     public ServerGroupDto mapToDto(ServerGroupEntity entity) {
         return new ServerGroupDto(
-                entity.getId(),
-                entity.getName(),
-                // Преобразуем список Entity серверов в список DTO
-                entity.getServers() != null
-                        ? entity.getServers().stream()
-                        .map(serverProfile::mapToDto)
-                        .collect(Collectors.toList())
-                        : Collections.emptyList()
+            entity.getId(),
+            entity.getName(),
+            // Преобразуем список Entity серверов в список DTO
+            entity.getServers() != null
+                ? entity.getServers().stream()
+                .map(serverProfile::mapToDto)
+                .collect(Collectors.toList())
+                : Collections.emptyList()
         );
     }
 
     @Override
     public ServerGroupEntity mapToEntity(ServerGroupDto dto) {
         return ServerGroupEntity.builder()
-                .name(dto.name())
-                .build();
+            .name(dto.name())
+            .build();
     }
 
     @Override

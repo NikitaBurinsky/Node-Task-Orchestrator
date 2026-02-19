@@ -21,24 +21,24 @@ public class ServerProfile implements MapperProfile<ServerEntity, ServerDto> {
     @Override
     public ServerDto mapToDto(ServerEntity entity) {
         return new ServerDto(
-                entity.getId(),
-                entity.getHostname(),
-                entity.getIpAddress(),
-                entity.getPort(),
-                entity.getUsername(),
-                entity.getPassword()
+            entity.getId(),
+            entity.getHostname(),
+            entity.getIpAddress(),
+            entity.getPort(),
+            entity.getUsername(),
+            entity.getPassword()
         );
     }
 
     @Override
     public ServerEntity mapToEntity(ServerDto dto) {
         return ServerEntity.builder()
-                .hostname(dto.hostname())
-                .ipAddress(dto.ipAddress())
-                .port(dto.port())
-                .password(dto.password())
-                .username(dto.username())
-                .build();
+            .hostname(dto.hostname())
+            .ipAddress(dto.ipAddress())
+            .port(dto.port())
+            .password(dto.password())
+            .username(dto.username())
+            .build();
     }
 
     @Override

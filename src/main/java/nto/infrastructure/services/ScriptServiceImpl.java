@@ -2,7 +2,6 @@ package nto.infrastructure.services;
 
 import lombok.RequiredArgsConstructor;
 import nto.application.dto.ScriptDto;
-import nto.application.interfaces.repositories.ScriptRepository;
 import nto.application.interfaces.services.MappingService;
 import nto.application.interfaces.services.ScriptService;
 import nto.core.entities.ScriptEntity;
@@ -36,7 +35,7 @@ public class ScriptServiceImpl implements ScriptService {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
         UserEntity currentUser = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("Authenticated user not found in DB"));
+            .orElseThrow(() -> new RuntimeException("Authenticated user not found in DB"));
 
         ScriptEntity entity = mappingService.mapToEntity(dto, ScriptEntity.class);
 
@@ -51,7 +50,7 @@ public class ScriptServiceImpl implements ScriptService {
     @Transactional(readOnly = true)
     public ScriptDto getScriptById(Long id) {
         ScriptEntity script = scriptRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Script not found with id: " + id));
+            .orElseThrow(() -> new RuntimeException("Script not found with id: " + id));
 
         return mappingService.mapToDto(script, ScriptDto.class);
     }
@@ -60,7 +59,7 @@ public class ScriptServiceImpl implements ScriptService {
     @Transactional(readOnly = true)
     public List<ScriptDto> getAllScripts() {
         // Здесь можно добавить пагинацию в будущем
-        List<ScriptEntity> scripts = ((org.springframework.data.jpa.repository.JpaRepository<ScriptEntity, Long>) scriptRepository).findAll();
+        List<ScriptEntity> scripts = scriptRepository.findAll();
 
         return mappingService.mapListToDto(scripts, ScriptDto.class);
     }
@@ -72,6 +71,7 @@ public class ScriptServiceImpl implements ScriptService {
             throw new RuntimeException("Script not found with id: " + id);
         }
         //TODO
-        ((org.springframework.data.jpa.repository.JpaRepository<ScriptEntity, Long>) scriptRepository).deleteById(id);
+        scriptRepository.deleteById(
+            id);
     }
 }

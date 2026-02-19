@@ -17,5 +17,6 @@ public interface MappingService {
     <E extends BaseEntity, D extends BaseDto> void mapToEntity(D dto, E entity);
 
     // Хелпер для списков
-    <E extends BaseEntity, D extends BaseDto> List<D> mapListToDto(List<E> entities, Class<D> dtoClass);
+    <E extends BaseEntity, D extends BaseDto> List<D> mapListToDto(List<E> entities,
+                                                                   Class<D> dtoClass);
 }

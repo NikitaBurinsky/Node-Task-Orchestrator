@@ -21,18 +21,18 @@ public class UserProfile implements MapperProfile<UserEntity, UserDto> {
     @Override
     public UserDto mapToDto(UserEntity entity) {
         return new UserDto(
-                entity.getId(),
-                entity.getUsername(),
-                entity.getPassword()
+            entity.getId(),
+            entity.getUsername(),
+            entity.getPassword()
         );
     }
 
     @Override
     public UserEntity mapToEntity(UserDto dto) {
         return UserEntity.builder()
-                .username(dto.username())
-                .password(dto.password())
-                .build();
+            .username(dto.username())
+            .password(dto.password())
+            .build();
     }
 
     @Override

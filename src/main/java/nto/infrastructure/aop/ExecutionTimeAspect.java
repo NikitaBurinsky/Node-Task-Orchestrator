@@ -24,8 +24,8 @@ public class ExecutionTimeAspect {
         stopWatch.stop();
 
         log.info("AOP Metric: Method [{}] executed in {} ms",
-                joinPoint.getSignature().getName(),
-                stopWatch.getTotalTimeMillis());
+            joinPoint.getSignature().getName(),
+            stopWatch.getTotalTimeMillis());
 
         return proceed;
     }

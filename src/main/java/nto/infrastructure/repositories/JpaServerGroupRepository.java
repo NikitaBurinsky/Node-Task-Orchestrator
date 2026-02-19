@@ -10,7 +10,8 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface JpaServerGroupRepository extends JpaRepository<ServerGroupEntity, Long>, ServerGroupRepository {
+public interface JpaServerGroupRepository extends JpaRepository<ServerGroupEntity, Long>,
+    ServerGroupRepository {
 
     // Подгружаем серверы сразу, чтобы избежать N+1 при маппинге DTO
     @EntityGraph(attributePaths = {"servers", "owner"})

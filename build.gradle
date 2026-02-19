@@ -2,12 +2,19 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.2.2'
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'checkstyle'
+    id "org.sonarqube" version "4.4.1.3373"
 }
 
 group = 'nto'
 version = '0.0.1-SNAPSHOT'
 description = 'Demo project for Spring Boot'
-
+checkstyle {
+    toolVersion = "10.12.4"
+    configFile = file("${rootDir}/config/checkstyle/checkstyle.xml")
+    ignoreFailures = false
+    maxWarnings = 0
+}
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
@@ -17,6 +24,15 @@ java {
 configurations {
     compileOnly {
         extendsFrom annotationProcessor
+    }
+}
+sonar {
+    properties {
+        property "sonar.projectKey", "nikitaburinsky_Node-Task-Orchestrator" // Твой ключ из SonarCloud
+        property "sonar.organization", "nikitaburinsky" // Твоя организация
+        property "sonar.host.url", "https://sonarcloud.io"
+        // Указываем Sonar брать отчеты Jacoco (если добавишь покрытие тестами позже) и Checkstyle
+        property "sonar.java.checkstyle.reportPaths", "build/reports/checkstyle/main.xml"
     }
 }
 
@@ -47,4 +63,10 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+tasks.withType(Checkstyle) {
+    reports {
+        xml.required = true
+        html.required = true
+    }
 }

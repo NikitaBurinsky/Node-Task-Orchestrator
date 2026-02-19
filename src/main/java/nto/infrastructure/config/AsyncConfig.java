@@ -8,7 +8,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import java.util.concurrent.Executor;
 
 @Configuration
-@EnableAsync // Включает обработку аннотации @Async
+@EnableAsync
 public class AsyncConfig {
 
     @Bean(name = "taskExecutor")

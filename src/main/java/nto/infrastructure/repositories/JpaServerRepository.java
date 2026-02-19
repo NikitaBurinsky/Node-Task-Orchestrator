@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -31,6 +32,9 @@ public interface JpaServerRepository extends JpaRepository<ServerEntity, Long>, 
     @EntityGraph(attributePaths = {"owner", "groups"})
     @Query("SELECT s FROM ServerEntity s WHERE s.owner.username = :username")
     List<ServerEntity> findAllByOwnerUsername(@Param("username") String username);
+
     List<ServerEntity> findAllByOwner(UserEntity owner);
-    List<ServerEntity> findAllByOwnerAndHostnameContainingIgnoreCase(UserEntity owner, String hostname);
+
+    List<ServerEntity> findAllByOwnerAndHostnameContainingIgnoreCase(UserEntity owner,
+                                                                     String hostname);
 }

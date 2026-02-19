@@ -2,7 +2,6 @@ package nto.infrastructure.services;
 
 import lombok.RequiredArgsConstructor;
 import nto.application.dto.ServerDto;
-import nto.application.interfaces.repositories.ServerRepository;
 import nto.application.interfaces.services.MappingService;
 import nto.application.interfaces.services.ScriptExecutor;
 import nto.application.interfaces.services.ServerService;
@@ -14,7 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 public class ServerServiceImpl implements ServerService {
@@ -28,8 +27,8 @@ public class ServerServiceImpl implements ServerService {
     public List<ServerDto> getAllServers() { // Нужно добавить этот метод в интерфейс
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return mappingService.mapListToDto(
-                serverRepository.findAllByOwnerUsername(username),
-                ServerDto.class
+            serverRepository.findAllByOwnerUsername(username),
+            ServerDto.class
         );
     }
 
@@ -37,7 +36,7 @@ public class ServerServiceImpl implements ServerService {
     @Transactional(readOnly = true)
     public ServerDto getServerById(Long id) {
         ServerEntity server = serverRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Server not found"));
+            .orElseThrow(() -> new RuntimeException("Server not found"));
 
         return mappingService.mapToDto(server, ServerDto.class);
     }
@@ -58,11 +57,10 @@ public class ServerServiceImpl implements ServerService {
     @Override
     @Transactional
     public ServerDto createServer(ServerDto dto) {
-        // Получаем текущего юзера
-        String username = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
         nto.core.entities.UserEntity currentUser = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new RuntimeException("User not found"));
 
         ServerEntity entity = mappingService.mapToEntity(dto, ServerEntity.class);
 
@@ -73,11 +71,12 @@ public class ServerServiceImpl implements ServerService {
 
         return mappingService.mapToDto(saved, ServerDto.class);
     }
+
     @Override
     public boolean checkConnection(Long id) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         ServerEntity server = serverRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Server not found"));
+            .orElseThrow(() -> new RuntimeException("Server not found"));
 
         if (!server.getOwner().getUsername().equals(username)) {
             throw new RuntimeException("Access Denied: You do not own this server");

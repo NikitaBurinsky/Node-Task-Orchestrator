@@ -15,7 +15,8 @@ import java.util.Optional;
 public interface JpaScriptRepository extends JpaRepository<ScriptEntity, Long>, ScriptRepository {
 
     @Override
-    @EntityGraph(attributePaths = {"owner"}) // Жадная загрузка владельца скрипта
+    @EntityGraph(attributePaths = {"owner"})
+        // Жадная загрузка владельца скрипта
     Optional<ScriptEntity> findById(Long id);
 
     @Query("SELECT s FROM ScriptEntity s JOIN FETCH s.owner WHERE s.isPublic = true OR s.owner.username = :username")

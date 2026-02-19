@@ -6,7 +6,11 @@ import nto.application.dto.TaskDto;
 import nto.application.interfaces.services.MappingService;
 import nto.application.interfaces.services.ScriptExecutor;
 import nto.application.interfaces.services.ServerGroupService;
-import nto.core.entities.*;
+import nto.core.entities.ScriptEntity;
+import nto.core.entities.ServerEntity;
+import nto.core.entities.ServerGroupEntity;
+import nto.core.entities.TaskEntity;
+import nto.core.entities.UserEntity;
 import nto.core.enums.TaskStatus;
 import nto.infrastructure.cache.TaskStatusCache;
 import nto.infrastructure.repositories.JpaScriptRepository;
@@ -42,7 +46,7 @@ public class ServerGroupServiceImpl implements ServerGroupService {
     public ServerGroupDto createGroup(ServerGroupDto dto) {
         String username = getCurrentUsername();
         UserEntity user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new RuntimeException("User not found"));
 
         ServerGroupEntity entity = mappingService.mapToEntity(dto, ServerGroupEntity.class);
         entity.setOwner(user);
@@ -61,8 +65,8 @@ public class ServerGroupServiceImpl implements ServerGroupService {
     public List<ServerGroupDto> getAllGroups() {
         String username = getCurrentUsername();
         return mappingService.mapListToDto(
-                groupRepository.findAllByOwnerUsername(username),
-                ServerGroupDto.class
+            groupRepository.findAllByOwnerUsername(username),
+            ServerGroupDto.class
         );
     }
 
@@ -120,7 +124,7 @@ public class ServerGroupServiceImpl implements ServerGroupService {
         ServerGroupEntity group = getGroupIfOwned(groupId);
 
         ScriptEntity script = scriptRepository.findById(scriptId)
-                .orElseThrow(() -> new RuntimeException("Script not found"));
+            .orElseThrow(() -> new RuntimeException("Script not found"));
 
         if (!script.getIsPublic() && !script.getOwner().getUsername().equals(username)) {
             throw new RuntimeException("Access Denied to Script");
@@ -132,13 +136,13 @@ public class ServerGroupServiceImpl implements ServerGroupService {
 
         // Создаем задачи
         List<TaskEntity> tasks = group.getServers().stream()
-                .map(server -> TaskEntity.builder()
-                        .server(server)
-                        .script(script)
-                        .sourceGroup(group)
-                        .status(TaskStatus.PENDING)
-                        .build())
-                .collect(Collectors.toList());
+            .map(server -> TaskEntity.builder()
+                .server(server)
+                .script(script)
+                .sourceGroup(group)
+                .status(TaskStatus.PENDING)
+                .build())
+            .collect(Collectors.toList());
 
         List<TaskEntity> savedTasks = taskRepository.saveAll(tasks);
 
@@ -159,7 +163,7 @@ public class ServerGroupServiceImpl implements ServerGroupService {
 
     private ServerGroupEntity getGroupIfOwned(Long id) {
         ServerGroupEntity group = groupRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Group not found"));
+            .orElseThrow(() -> new RuntimeException("Group not found"));
         if (!group.getOwner().getUsername().equals(getCurrentUsername())) {
             throw new RuntimeException("Access Denied: Not your group");
         }
@@ -168,7 +172,7 @@ public class ServerGroupServiceImpl implements ServerGroupService {
 
     private ServerEntity getServerIfOwned(Long id) {
         ServerEntity server = serverRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Server not found"));
+            .orElseThrow(() -> new RuntimeException("Server not found"));
         if (!server.getOwner().getUsername().equals(getCurrentUsername())) {
             throw new RuntimeException("Access Denied: Not your server");
         }

@@ -6,5 +6,6 @@ import nto.application.dto.UserDto;
 
 public interface AuthService {
     AuthResponseDto register(UserDto dto);
+
     AuthResponseDto login(AuthRequestDto dto);
 }

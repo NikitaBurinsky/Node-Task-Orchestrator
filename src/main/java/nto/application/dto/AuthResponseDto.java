@@ -1,3 +1,4 @@
 package nto.application.dto;
 
-public record AuthResponseDto(String token) {}
+public record AuthResponseDto(String token) {
+}
