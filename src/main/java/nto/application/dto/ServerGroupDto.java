@@ -8,5 +8,5 @@ public record ServerGroupDto(
         Long id,
         @NotBlank(message = "Name is required")
         String name,
-        List<Long> serverIds // ID серверов, входящих в группу
+        List<ServerDto> servers
 ) implements BaseDto {}

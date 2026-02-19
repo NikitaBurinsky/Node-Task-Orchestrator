@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { setupMockAdapter } from './mockAdapter';
+//import { setupMockAdapter } from './mockAdapter';
 import type {
   ServerDto,
   ScriptDto,
@@ -13,13 +13,13 @@ import type {
 } from '../types/api';
 
 const api = axios.create({
-  baseURL: 'localhost:8081',
+  baseURL: 'http://localhost:8081/api',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-setupMockAdapter(api);
+// setupMockAdapter(api);
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');

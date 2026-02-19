@@ -2,6 +2,7 @@ package nto.infrastructure.repositories;
 
 import nto.application.interfaces.repositories.ServerRepository;
 import nto.core.entities.ServerEntity;
+import nto.core.entities.UserEntity;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -30,4 +31,6 @@ public interface JpaServerRepository extends JpaRepository<ServerEntity, Long>, 
     @EntityGraph(attributePaths = {"owner", "groups"})
     @Query("SELECT s FROM ServerEntity s WHERE s.owner.username = :username")
     List<ServerEntity> findAllByOwnerUsername(@Param("username") String username);
+    List<ServerEntity> findAllByOwner(UserEntity owner);
+    List<ServerEntity> findAllByOwnerAndHostnameContainingIgnoreCase(UserEntity owner, String hostname);
 }

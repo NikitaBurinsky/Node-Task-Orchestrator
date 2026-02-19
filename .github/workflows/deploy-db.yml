@@ -1,0 +1,51 @@
+name: Deploy PostgreSQL DB (VPS)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-postgres:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy DB to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_KEY }}
+          port: 22
+          script: |
+            # === НАСТРОЙКИ ИЗ application.properties ===
+            CONTAINER_NAME="nto_db_container"
+            DB_NAME="nto_db"
+            DB_USER="postgres"
+            DB_PASS="password"
+            HOST_PORT="5400"
+            VOLUME_NAME="nto_pg_data"
+
+            echo "🚀 Начинаем развертывание PostgreSQL..."
+
+            # 1. Создаем Docker Volume для сохранения данных БД между перезапусками контейнера
+            docker volume create $VOLUME_NAME
+
+            # 2. Очистка старого контейнера (если он уже был запущен)
+            echo "🧹 Проверка существующих контейнеров..."
+            if [ "$(docker ps -aq -f name=$CONTAINER_NAME)" ]; then
+                echo "Остановка и удаление старого контейнера $CONTAINER_NAME..."
+                docker rm -f $CONTAINER_NAME
+            fi
+
+            # 3. Запуск нового контейнера с пробросом порта 5400 -> 5432
+            echo "🔥 Запуск PostgreSQL..."
+            docker run -d \
+              --name $CONTAINER_NAME \
+              -p $HOST_PORT:5432 \
+              -e POSTGRES_DB=$DB_NAME \
+              -e POSTGRES_USER=$DB_USER \
+              -e POSTGRES_PASSWORD=$DB_PASS \
+              -v $VOLUME_NAME:/var/lib/postgresql/data \
+              --restart unless-stopped \
+              postgres:15-alpine
+
+            echo "✅ База данных успешно запущена!"
+            echo "Доступна по адресу: jdbc:postgresql://2.56.240.190:$HOST_PORT/$DB_NAME"

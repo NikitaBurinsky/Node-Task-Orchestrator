@@ -1,15 +1,19 @@
 package nto.infrastructure.mapping.profiles;
 
+import lombok.RequiredArgsConstructor;
 import nto.application.dto.ServerGroupDto;
 import nto.application.interfaces.mapping.MapperProfile;
-import nto.core.entities.ServerEntity;
 import nto.core.entities.ServerGroupEntity;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
 import java.util.stream.Collectors;
 
 @Component
+@RequiredArgsConstructor // Добавляем lombok конструктор для инъекции
 public class ServerGroupProfile implements MapperProfile<ServerGroupEntity, ServerGroupDto> {
+
+    private final ServerProfile serverProfile; // Инжектим маппер серверов
 
     @Override
     public Class<ServerGroupEntity> getEntityClass() {
@@ -26,15 +30,17 @@ public class ServerGroupProfile implements MapperProfile<ServerGroupEntity, Serv
         return new ServerGroupDto(
                 entity.getId(),
                 entity.getName(),
-                entity.getServers().stream()
-                        .map(ServerEntity::getId)
+                // Преобразуем список Entity серверов в список DTO
+                entity.getServers() != null
+                        ? entity.getServers().stream()
+                        .map(serverProfile::mapToDto)
                         .collect(Collectors.toList())
+                        : Collections.emptyList()
         );
     }
 
     @Override
     public ServerGroupEntity mapToEntity(ServerGroupDto dto) {
-        // Owner и Servers устанавливаются в сервисе
         return ServerGroupEntity.builder()
                 .name(dto.name())
                 .build();
@@ -43,6 +49,5 @@ public class ServerGroupProfile implements MapperProfile<ServerGroupEntity, Serv
     @Override
     public void mapToEntity(ServerGroupDto dto, ServerGroupEntity entity) {
         entity.setName(dto.name());
-        // Состав группы обновляется через отдельные методы сервиса addServer/removeServer
     }
 }

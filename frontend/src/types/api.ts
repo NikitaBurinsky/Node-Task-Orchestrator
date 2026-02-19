@@ -34,9 +34,9 @@ export interface ScriptDto {
 }
 
 export interface ServerGroupDto {
-  id?: number;
-  name: string;
-  serverIds?: number[];
+    id?: number;
+    name: string;
+    servers?: ServerDto[];
 }
 
 export interface UserDto {

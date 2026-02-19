@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Layers, Trash2 } from 'lucide-react';
-import { groupsApi, serversApi } from '../services/api';
-import type { ServerGroupDto, ServerDto } from '../types/api';
+import { groupsApi } from '../services/api';
+import type { ServerGroupDto} from '../types/api';
 
 export function ServerGroups() {
   const [groups, setGroups] = useState<ServerGroupDto[]>([]);
-  const [servers, setServers] = useState<ServerDto[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [groupName, setGroupName] = useState('');
   const navigate = useNavigate();
@@ -17,16 +16,13 @@ export function ServerGroups() {
 
   const fetchData = async () => {
     try {
-      const [groupsRes, serversRes] = await Promise.all([
-        groupsApi.getAll(),
-        serversApi.getAll(),
-      ]);
+        const groupsRes = await groupsApi.getAll();
       setGroups(groupsRes.data);
-      setServers(serversRes.data);
     } catch (error) {
       console.error('Failed to fetch data:', error);
     }
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,9 +47,9 @@ export function ServerGroups() {
     }
   };
 
-  const getServerCount = (group: ServerGroupDto) => {
-    return group.serverIds?.length || 0;
-  };
+    const getServerCount = (group: ServerGroupDto) => {
+        return group.servers?.length || 0;
+    };
 
   return (
     <div className="space-y-6">

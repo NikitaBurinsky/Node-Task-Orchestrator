@@ -23,24 +23,35 @@ export function GroupDetail() {
     }
   }, [id]);
 
-  const fetchData = async () => {
-    try {
-      const [groupRes, serversRes, scriptsRes] = await Promise.all([
-        groupsApi.getById(parseInt(id!)),
-        serversApi.getAll(),
-        scriptsApi.getAll(),
-      ]);
-      setGroup(groupRes.data);
-      setAllServers(serversRes.data);
-      setScripts(scriptsRes.data);
+    const fetchData = async () => {
+        try {
+            const [groupRes, serversRes, scriptsRes] = await Promise.all([
+                groupsApi.getById(parseInt(id!)),
+                serversApi.getAll(),
+                scriptsApi.getAll(),
+            ]);
 
-      const serverIds = groupRes.data.serverIds || [];
-      const servers = serversRes.data.filter((s) => serverIds.includes(s.id!));
-      setGroupServers(servers);
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-    }
-  };
+            setGroup(groupRes.data);
+            setAllServers(serversRes.data);
+            setScripts(scriptsRes.data);
+
+            // --- БЫЛО (Старая логика) ---
+            // const serverIds = groupRes.data.serverIds || [];
+            // const servers = serversRes.data.filter((s) => serverIds.includes(s.id!));
+            // setGroupServers(servers);
+
+            // --- СТАЛО (Новая логика) ---
+            // Бэкенд уже прислал нам полные объекты серверов в поле servers
+            if (groupRes.data.servers) {
+                setGroupServers(groupRes.data.servers);
+            } else {
+                setGroupServers([]);
+            }
+
+        } catch (error) {
+            console.error('Failed to fetch data:', error);
+        }
+    };
 
   const handleAddServer = async (serverId: number) => {
     try {
@@ -87,9 +98,9 @@ export function GroupDetail() {
     }
   };
 
-  const availableServers = allServers.filter(
-    (s) => !group?.serverIds?.includes(s.id!)
-  );
+    const availableServers = allServers.filter(
+        (s) => !group?.servers?.some((gs) => gs.id === s.id)
+    );
 
   const getPingStatus = (serverId: number) => {
     const key = serverId.toString();
