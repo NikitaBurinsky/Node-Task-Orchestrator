@@ -21,7 +21,6 @@ import java.util.concurrent.atomic.AtomicLong;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-// Этот бин создастся, ТОЛЬКО если в конфиге nto.executor.type=mock (или свойство вообще отсутствует)
 @ConditionalOnProperty(name = "nto.executor.type", havingValue = "mock", matchIfMissing = true)
 public class MockScriptExecutor implements ScriptExecutor {
 
@@ -49,8 +48,8 @@ public class MockScriptExecutor implements ScriptExecutor {
             Thread.currentThread().interrupt();
         }
 
-        // Имитируем успех с вероятностью 90%
-        return new Random().nextInt(10) > 0;
+        // Имитируем успех
+        return true;
     }
 
     @Override

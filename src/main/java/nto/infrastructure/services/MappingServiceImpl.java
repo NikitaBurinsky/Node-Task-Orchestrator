@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 @Service
 public class MappingServiceImpl implements MappingService {
 
-    private final Map<String, MapperProfile> profiles;
+    private final Map<String, MapperProfile<?, ?>> profiles;
 
     // Constructor Injection: Spring сам найдет все реализации MapperProfile и передаст их сюда списком
     public MappingServiceImpl(List<MapperProfile<?, ?>> profileList) {
@@ -31,7 +31,12 @@ public class MappingServiceImpl implements MappingService {
         if (entity == null) {
             return null;
         }
-        return (D) getProfile(entity.getClass(), dtoClass).mapToDto(entity);
+        var profile = (MapperProfile<E, D>) getProfile(entity.getClass(), dtoClass);
+        if (profile == null) {
+            throw new IllegalArgumentException(
+                "No profile found for entity class: " + entity.getClass());
+        }
+        return profile.mapToDto(entity);
     }
 
     @Override
@@ -40,7 +45,11 @@ public class MappingServiceImpl implements MappingService {
         if (dto == null) {
             return null;
         }
-        return (E) getProfile(entityClass, dto.getClass()).mapToEntity(dto);
+        var profile = (MapperProfile<E, D>) getProfile(entityClass, dto.getClass());
+        if (profile == null) {
+            throw new IllegalArgumentException("No profile found for dto class: " + dto.getClass());
+        }
+        return profile.mapToEntity(dto);
     }
 
     @Override
@@ -49,7 +58,12 @@ public class MappingServiceImpl implements MappingService {
         if (dto == null || entity == null) {
             return;
         }
-        getProfile(entity.getClass(), dto.getClass()).mapToEntity(dto, entity);
+        var profile = (MapperProfile<E, D>) getProfile(entity.getClass(), dto.getClass());
+        if (profile == null) {
+            throw new IllegalArgumentException(
+                "No profile found for entity class: " + entity.getClass());
+        }
+        profile.mapToEntity(dto, entity);
     }
 
     @Override
@@ -63,11 +77,9 @@ public class MappingServiceImpl implements MappingService {
             .collect(Collectors.toList());
     }
 
-    // --- Private Helpers ---
-
-    private MapperProfile getProfile(Class<?> entityClass, Class<?> dtoClass) {
+    private MapperProfile<?, ?> getProfile(Class<?> entityClass, Class<?> dtoClass) {
         String key = buildKey(entityClass, dtoClass);
-        MapperProfile profile = profiles.get(key);
+        MapperProfile<?, ?> profile = profiles.get(key);
         if (profile == null) {
             throw new IllegalStateException("Mapper profile not found for pair: "
                 + entityClass.getSimpleName() + " <-> " + dtoClass.getSimpleName());
