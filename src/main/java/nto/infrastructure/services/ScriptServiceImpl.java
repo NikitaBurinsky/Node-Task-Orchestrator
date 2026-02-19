@@ -59,6 +59,7 @@ public class ScriptServiceImpl implements ScriptService {
     @Override
     @Transactional(readOnly = true)
     public List<ScriptDto> getAllScripts() {
+        //TODO
         // Здесь можно добавить пагинацию в будущем
         List<ScriptEntity> scripts = scriptRepository.findAll();
 
@@ -71,8 +72,6 @@ public class ScriptServiceImpl implements ScriptService {
         if (!scriptRepository.findById(id).isPresent()) {
             throw new EntityNotFoundException("Script not found with id: " + id);
         }
-        //TODO
-        scriptRepository.deleteById(
-            id);
+        scriptRepository.deleteById(id);
     }
 }
