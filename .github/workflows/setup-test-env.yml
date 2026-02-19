@@ -29,7 +29,7 @@ jobs:
             # === НАСТРОЙКИ ===
             NODE_COUNT=${{ inputs.node_count }}
             START_PORT=${{ inputs.start_port }}
-            WORK_DIR="~/nto_test_infra"
+            WORK_DIR="~/nto_lab_infra"
             IMAGE_NAME="nto-ssh-node"
 
             echo "🚀 Начало развертывания $NODE_COUNT нод..."
