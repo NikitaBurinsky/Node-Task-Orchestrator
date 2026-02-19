@@ -46,7 +46,6 @@ public class MockScriptExecutor implements ScriptExecutor {
             Thread.sleep(200);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return false;
         }
         // Имитируем успех
         return true;
@@ -79,15 +78,13 @@ public class MockScriptExecutor implements ScriptExecutor {
             // 3. Успешное завершение
             task.setFinishedAt(java.time.LocalDateTime.now());
             updateStatus(task, TaskStatus.SUCCESS, fakeOutput);
-
             // --- DEMO RACE CONDITION ---
             incrementCounters();
 
         } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
             task.setFinishedAt(java.time.LocalDateTime.now());
             updateStatus(task, TaskStatus.CANCELLED, "Execution interrupted");
-            return;
+            Thread.currentThread().interrupt();
         } catch (Exception e) {
             log.error("Task failed", e);
             task.setFinishedAt(java.time.LocalDateTime.now());
