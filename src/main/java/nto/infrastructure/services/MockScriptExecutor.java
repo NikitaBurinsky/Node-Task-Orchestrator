@@ -40,13 +40,6 @@ public class MockScriptExecutor implements ScriptExecutor {
             log.warn("Server {} not found", serverId);
             return false;
         }
-
-        // Имитация задержки сети
-        try {
-            Thread.sleep(200);
-        } catch (InterruptedException e) {
-            return false;
-        }
         // Имитируем успех
         return true;
     }
@@ -80,11 +73,7 @@ public class MockScriptExecutor implements ScriptExecutor {
             updateStatus(task, TaskStatus.SUCCESS, fakeOutput);
             // --- DEMO RACE CONDITION ---
             incrementCounters();
-
-        } catch (InterruptedException e) {
-            task.setFinishedAt(java.time.LocalDateTime.now());
-            updateStatus(task, TaskStatus.CANCELLED, "Execution interrupted");
-            Thread.currentThread().interrupt();
+            
         } catch (Exception e) {
             log.error("Task failed", e);
             task.setFinishedAt(java.time.LocalDateTime.now());
