@@ -1,18 +1,6 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
-    ports:
-      - "${DB_PORT}:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    restart: unless-stopped
-
   nto-backend:
     build: .
     image: nto-backend:latest
@@ -24,8 +12,6 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       NTO_EXECUTOR_TYPE: ssh
       SERVER_FORWARD_HEADERS_STRATEGY: framework
-    depends_on:
-      - db
     restart: unless-stopped
 
   nginx:
