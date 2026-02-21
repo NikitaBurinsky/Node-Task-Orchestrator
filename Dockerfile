@@ -1,5 +1,4 @@
-FROM eclipse-temurin:21-jre-alpine
-
+FROM public.ecr.aws/amazoncorretto/amazoncorretto:21-alpine
 WORKDIR /app
 
 # JAR файл будет скопирован сюда на этапе деплоя (из GitHub Actions)
