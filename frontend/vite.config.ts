@@ -6,7 +6,7 @@ export default defineConfig({
     server: {
         proxy: {
             '/api': {
-                target: 'http://localhost:8081', // Адрес твоего Java Backend
+                target: 'http://31.128.45.153:8080', // Адрес твоего Java Backend
                 changeOrigin: true,
                 secure: false,
             },
