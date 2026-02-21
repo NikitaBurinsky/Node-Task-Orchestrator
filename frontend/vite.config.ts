@@ -6,7 +6,7 @@ export default defineConfig({
     server: {
         proxy: {
             '/api': {
-                target: 'http://formatis.online:8080', // Адрес твоего Java Backend
+                target: 'https://formatis.online:8080', // Адрес твоего Java Backend
                 changeOrigin: true,
                 secure: false,
             },
