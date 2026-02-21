@@ -13,7 +13,7 @@ import type {
 } from '../types/api';
 
 const api = axios.create({
-  baseURL: 'http://31.128.45.153:8080/api',
+  baseURL: 'http://formatis.online:8080/api',
   headers: {
     'Content-Type': 'application/json',
   },
