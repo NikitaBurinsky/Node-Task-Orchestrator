@@ -48,4 +48,4 @@ jobs:
               postgres:15-alpine
 
             echo "✅ База данных успешно запущена!"
-            echo "Доступна по адресу: jdbc:postgresql://2.56.240.190:$HOST_PORT/$DB_NAME"
+            echo "Доступна по адресу: jdbc:postgresql://$VPS_HOST:$HOST_PORT/$DB_NAME"
