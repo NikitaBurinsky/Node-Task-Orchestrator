@@ -21,9 +21,9 @@ jobs:
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_KEY }}
+          host: ${{ secrets.TEST_VPS_HOST }}
+          username: ${{ secrets.TEST_VPS_USER }}
+          key: ${{ secrets.TEST_VPS_KEY }}
           port: 22
           script: |
             # === НАСТРОЙКИ ===
