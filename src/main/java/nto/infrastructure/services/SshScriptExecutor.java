@@ -1,8 +1,5 @@
 package nto.infrastructure.services;
 
-import com.jcraft.jsch.ChannelExec;
-import com.jcraft.jsch.JSch;
-import com.jcraft.jsch.Session;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,14 +10,20 @@ import nto.core.entities.TaskEntity;
 import nto.core.enums.TaskStatus;
 import nto.infrastructure.cache.TaskStatusCache;
 import nto.infrastructure.repositories.JpaTaskRepository;
+import nto.infrastructure.services.ssh.SshSessionManager;
+import org.apache.sshd.client.channel.ChannelExec;
+import org.apache.sshd.client.channel.ClientChannelEvent;
+import org.apache.sshd.client.session.ClientSession;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.EnumSet;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Service
@@ -28,12 +31,16 @@ import java.util.concurrent.atomic.AtomicLong;
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "nto.executor.type", havingValue = "ssh")
 public class SshScriptExecutor implements ScriptExecutor {
+    private record ExecutionResult(TaskStatus status, String output) {}
 
     private final JpaTaskRepository taskRepository;
     private final TaskStatusCache statusCache;
     private final ServerRepository serverRepository;
 
-    // Счетчикi
+    // Внедряем наш новый менеджер сессий
+    private final SshSessionManager sessionManager;
+
+    // Счетчики (для демонстрации Race Condition в Лабе 6)
     private final AtomicLong atomicCounter = new AtomicLong(0);
     private long unsafeCounter = 0;
 
@@ -41,98 +48,15 @@ public class SshScriptExecutor implements ScriptExecutor {
     @Async("taskExecutor")
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void executeAsync(Long taskId) {
-        log.info("[SSH] Starting execution for Task ID: {}", taskId);
-
-        TaskEntity task = taskRepository.findById(taskId)
-            .orElseThrow(() -> new EntityNotFoundException("Task not found"));
-        task.setStartedAt(java.time.LocalDateTime.now());
-        updateStatus(task, TaskStatus.RUNNING, "Connecting via SSH...");
-
-        Session session = null;
-        ChannelExec channel = null;
+        TaskEntity task = prepareTask(taskId);
+        if (task == null) return;
 
         try {
-            // Вынесли настройку сессии
-            session = createSshSession(task.getServer());
-            session.connect(10000);
-
-            channel = (ChannelExec) session.openChannel("exec");
-            channel.setCommand(task.getScript().getContent());
-            channel.setInputStream(null);
-
-            InputStream in = channel.getInputStream();
-            InputStream err = channel.getErrStream();
-
-            channel.connect();
-
-            // Вынесли сложный цикл чтения вывода
-            String output = readChannelOutput(channel, in, err);
-
-            TaskStatus finalStatus = (channel.getExitStatus() ==
-                0) ? TaskStatus.SUCCESS : TaskStatus.FAILED;
-            task.setFinishedAt(java.time.LocalDateTime.now());
-            updateStatus(task, finalStatus, output);
-
-            // Обновляем счетчики
-            atomicCounter.incrementAndGet();
-            ++unsafeCounter;
-
+            ExecutionResult result = performSshExecution(task);
+            finalizeTask(task, result.status(), result.output());
+            updateMetrics();
         } catch (Exception e) {
-            log.error("SSH Execution failed", e);
-            task.setFinishedAt(java.time.LocalDateTime.now());
-            updateStatus(task, TaskStatus.FAILED, "SSH Error: " + e.getMessage());
-        } finally {
-            if (channel != null) {
-                channel.disconnect();
-            }
-            if (session != null) {
-                session.disconnect();
-            }
-        }
-    }
-
-    private Session createSshSession(ServerEntity server) throws Exception {
-        JSch jsch = new JSch();
-        int sshPort = server.getPort() != null ? server.getPort() : 22;
-        Session session = jsch.getSession(server.getUsername(), server.getIpAddress(), sshPort);
-        session.setPassword(server.getPassword());
-        // Отключаем проверку HostKey для простоты (в проде так нельзя, MITM атака!)
-        session.setConfig("StrictHostKeyChecking", "no");
-        return session;
-    }
-
-    private String readChannelOutput(ChannelExec channel, InputStream in, InputStream err) throws
-        Exception {
-        StringBuilder outputBuffer = new StringBuilder();
-        byte[] buffer = new byte[1024];
-
-        while (true) {
-            readStreamData(in, buffer, outputBuffer, "");
-            readStreamData(err, buffer, outputBuffer, "[ERR] ");
-
-            if (channel.isClosed()) {
-                if (in.available() == 0) {
-                    outputBuffer.append("\nExit Status: ").append(channel.getExitStatus());
-                    break;
-                }
-            } else {
-                Thread.sleep(100);
-            }
-        }
-
-        return outputBuffer.toString();
-    }
-
-    private void readStreamData(InputStream stream, byte[] buffer,
-                                StringBuilder outputBuffer, String prefix)
-        throws Exception {
-        while (stream.available() > 0) {
-            int bytesRead = stream.read(buffer, 0, 1024);
-            if (bytesRead < 0) {
-                break;
-            }
-            outputBuffer.append(prefix)
-                .append(new String(buffer, 0, bytesRead, StandardCharsets.UTF_8));
+            handleExecutionError(task, e);
         }
     }
 
@@ -143,28 +67,91 @@ public class SshScriptExecutor implements ScriptExecutor {
         ServerEntity server = serverRepository.findById(serverId)
             .orElseThrow(() -> new EntityNotFoundException("Server not found: " + serverId));
 
-        Session session = null;
         try {
-            JSch jsch = new JSch();
-            int sshPort = server.getPort() != null ? server.getPort() : 22;
-
-            session = jsch.getSession(server.getUsername(), server.getIpAddress(), sshPort);
-            session.setPassword(server.getPassword());
-            session.setConfig("StrictHostKeyChecking",
-                "no"); // Внимание: для MVP ок, в проде - known_hosts
-
-            // Пытаемся подключиться с таймаутом 3 секунды (для пинга достаточно)
-            session.connect(3000);
-
-            return session.isConnected();
+            // Если мы смогли получить сессию без Exception - значит сервер жив.
+            // Обрати внимание: мы НЕ закрываем сессию здесь!
+            // Она остается в пуле (SshSessionManager) горячей для следующих задач.
+            ClientSession session = sessionManager.getOrCreateSession(server);
+            return session.isOpen();
         } catch (Exception e) {
             log.warn("Ping failed for server {}: {}", server.getIpAddress(), e.getMessage());
+            // Если пинг упал, возможно сервер перезагрузился, сбрасываем кэш сессии
+            sessionManager.invalidateSession(serverId);
             return false;
-        } finally {
-            if (session != null && session.isConnected()) {
-                session.disconnect();
-            }
         }
+    }
+
+
+    private TaskEntity prepareTask(Long taskId) {
+        log.info("[SSH] Preparing Task ID: {}", taskId);
+        TaskEntity task = statusCache.get(taskId);
+        if (task == null) {
+            task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new EntityNotFoundException("Task not found: " + taskId));
+        }
+
+        task.setStartedAt(java.time.LocalDateTime.now());
+        updateStatus(task, TaskStatus.RUNNING, "Executing via SSH pool...");
+        return task;
+    }
+
+    private ExecutionResult performSshExecution(TaskEntity task) throws Exception {
+        ServerEntity server = task.getServer();
+        String script = task.getScript().getContent();
+
+        ClientSession session = sessionManager.getOrCreateSession(server);
+
+        try (ChannelExec channel = session.createExecChannel(script);
+             ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+             ByteArrayOutputStream stderr = new ByteArrayOutputStream()) {
+
+            channel.setOut(stdout);
+            channel.setErr(stderr);
+            channel.open().verify(10, TimeUnit.SECONDS);
+
+            channel.waitFor(EnumSet.of(ClientChannelEvent.CLOSED), 0L);
+
+            int exitCode = (channel.getExitStatus() != null) ? channel.getExitStatus() : -1;
+            String combinedOutput = formatOutput(stdout, stderr, exitCode);
+            TaskStatus status = (exitCode == 0) ? TaskStatus.SUCCESS : TaskStatus.FAILED;
+
+            return new ExecutionResult(status, combinedOutput);
+        } catch (Exception e) {
+            sessionManager.invalidateSession(server.getId());
+            throw e;
+        }
+    }
+
+    private String formatOutput(ByteArrayOutputStream out, ByteArrayOutputStream err, int exitCode) {
+        StringBuilder sb = new StringBuilder();
+        String stdOutStr = out.toString(StandardCharsets.UTF_8);
+        String stdErrStr = err.toString(StandardCharsets.UTF_8);
+
+        if (!stdOutStr.isEmpty()) sb.append(stdOutStr);
+        if (!stdErrStr.isEmpty()) {
+            if (sb.length() > 0) sb.append("\n");
+            sb.append("[ERR] ").append(stdErrStr);
+        }
+        sb.append("\nExit Status: ").append(exitCode);
+        return sb.toString();
+    }
+
+    private void finalizeTask(TaskEntity task, TaskStatus status, String output) {
+        task.setFinishedAt(java.time.LocalDateTime.now());
+        updateStatus(task, status, output);
+        log.info("[SSH] Task ID: {} finished with status: {}", task.getId(), status);
+    }
+
+    private void handleExecutionError(TaskEntity task, Exception e) {
+        log.error("[SSH] Critical error during Task ID: {}", task.getId(), e);
+        sessionManager.invalidateSession(task.getServer().getId());
+        task.setFinishedAt(java.time.LocalDateTime.now());
+        updateStatus(task, TaskStatus.FAILED, "SSH Error: " + e.getMessage());
+    }
+
+    private void updateMetrics() {
+        atomicCounter.incrementAndGet();
+        unsafeCounter++;
     }
 
     private void updateStatus(TaskEntity task, TaskStatus status, String output) {

@@ -148,7 +148,10 @@ public class ServerGroupServiceImpl implements ServerGroupService {
 
         List<TaskEntity> savedTasks = taskRepository.saveAll(tasks);
 
-        // Асинхронный запуск
+
+        //TODO
+        taskRepository.saveAll(savedTasks);
+
         savedTasks.forEach(task -> {
             statusCache.put(task);
             scriptExecutor.executeAsync(task.getId());
