@@ -29,7 +29,6 @@ public class TaskController {
     @PostMapping
     @Operation(summary = "Запустить скрипт", description = "Создает задачу на выполнение скрипта на сервере")
     public ResponseEntity<TaskDto> createTask(@RequestBody TaskDto dto) {
-        // Валидацию добавим следующим шагом
         return ResponseEntity.ok(taskService.createTask(dto));
     }
 

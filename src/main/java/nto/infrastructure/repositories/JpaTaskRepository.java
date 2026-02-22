@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,4 +37,6 @@ public interface JpaTaskRepository extends JpaRepository<TaskEntity, Long>, Task
     @Query("SELECT t FROM TaskEntity t WHERE t.sourceGroup.id = :groupId " +
         "AND t.createdAt = (SELECT MAX(t2.createdAt) FROM TaskEntity t2 WHERE t2.sourceGroup.id = :groupId)")
     List<TaskEntity> findLatestTasksByGroupId(@Param("groupId") Long groupId);
+
+    boolean existsByServerIdAndStatusIn(Long serverId, Collection<TaskStatus> statuses);
 }

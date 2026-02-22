@@ -2,6 +2,7 @@ package nto.infrastructure.services;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import nto.application.annotations.LogExecutionTime;
 import nto.application.dto.BulkTaskRequestDto;
 import nto.application.dto.TaskDto;
@@ -14,6 +15,7 @@ import nto.core.entities.ScriptEntity;
 import nto.core.entities.ServerEntity;
 import nto.core.entities.TaskEntity;
 import nto.core.enums.TaskStatus;
+import nto.core.utils.exceptions.ServerBusyException;
 import nto.infrastructure.cache.TaskStatusCache;
 import nto.infrastructure.repositories.JpaTaskRepository;
 import org.springframework.security.access.AccessDeniedException;
@@ -27,6 +29,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TaskServiceImpl implements TaskService {
 
     private final JpaTaskRepository taskRepository;
@@ -40,6 +43,12 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     @LogExecutionTime
     public TaskDto createTask(TaskDto dto) {
+        List<TaskStatus> activeStatuses = List.of(TaskStatus.PENDING, TaskStatus.RUNNING);
+        if (taskRepository.existsByServerIdAndStatusIn(dto.serverId(), activeStatuses)) {
+            log.warn("Attempt to start task on busy server ID: {}", dto.serverId());
+            throw new ServerBusyException("Сервер уже выполняет другую задачу. Дождитесь завершения.");
+        }
+
         String username = getCurrentUsername();
         ScriptEntity script = getScriptIfAvailable(dto.scriptId(), username);
         ServerEntity server = getServerIfOwned(dto.serverId(), username);
