@@ -31,7 +31,8 @@ import java.util.concurrent.atomic.AtomicLong;
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "nto.executor.type", havingValue = "ssh")
 public class SshScriptExecutor implements ScriptExecutor {
-    private record ExecutionResult(TaskStatus status, String output) {}
+    private record ExecutionResult(TaskStatus status, String output) {
+    }
 
     private final JpaTaskRepository taskRepository;
     private final TaskStatusCache statusCache;
@@ -49,7 +50,9 @@ public class SshScriptExecutor implements ScriptExecutor {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void executeAsync(Long taskId) {
         TaskEntity task = prepareTask(taskId);
-        if (task == null) return;
+        if (task == null) {
+            return;
+        }
 
         try {
             ExecutionResult result = performSshExecution(task);
@@ -122,14 +125,19 @@ public class SshScriptExecutor implements ScriptExecutor {
         }
     }
 
-    private String formatOutput(ByteArrayOutputStream out, ByteArrayOutputStream err, int exitCode) {
+    private String formatOutput(ByteArrayOutputStream out, ByteArrayOutputStream err,
+                                int exitCode) {
         StringBuilder sb = new StringBuilder();
         String stdOutStr = out.toString(StandardCharsets.UTF_8);
         String stdErrStr = err.toString(StandardCharsets.UTF_8);
 
-        if (!stdOutStr.isEmpty()) sb.append(stdOutStr);
+        if (!stdOutStr.isEmpty()) {
+            sb.append(stdOutStr);
+        }
         if (!stdErrStr.isEmpty()) {
-            if (sb.length() > 0) sb.append("\n");
+            if (sb.length() > 0) {
+                sb.append("\n");
+            }
             sb.append("[ERR] ").append(stdErrStr);
         }
         sb.append("\nExit Status: ").append(exitCode);

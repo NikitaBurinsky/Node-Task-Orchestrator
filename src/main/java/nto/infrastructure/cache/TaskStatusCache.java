@@ -1,7 +1,6 @@
 package nto.infrastructure.cache;
 
 import nto.core.entities.TaskEntity;
-import nto.core.enums.TaskStatus;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -23,8 +22,8 @@ public class TaskStatusCache {
         return cache.get(buildKey(serverId, scriptId));
     }
 
-    public TaskEntity get(Long TaskId){
-        return taskscache.get(TaskId);
+    public TaskEntity get(Long taskId) {
+        return taskscache.get(taskId);
     }
 
     public void evict(Long serverId, Long scriptId) {
