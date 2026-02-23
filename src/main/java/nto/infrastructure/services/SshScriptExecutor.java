@@ -1,8 +1,6 @@
 package nto.infrastructure.services;
 
-import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import nto.application.interfaces.repositories.ServerRepository;
@@ -36,8 +34,6 @@ public class SshScriptExecutor implements ScriptExecutor {
     private final JpaTaskRepository taskRepository;
     private final TaskStatusCache statusCache;
     private final ServerRepository serverRepository;
-    @PersistenceContext
-    private EntityManager entityManager;
     // Внедряем наш новый менеджер сессий
     private final SshSessionManager sessionManager;
     // Счетчики (для демонстрации Race Condition в Лабе 6)
@@ -89,7 +85,7 @@ public class SshScriptExecutor implements ScriptExecutor {
         }
 
         task.setStartedAt(java.time.LocalDateTime.now());
-        updateStatus(task, TaskStatus.RUNNING, "Executing via SSH pool...");
+        updateStatus(task.getId(), TaskStatus.RUNNING, "Executing via SSH pool...");
         return task;
     }
 
@@ -141,7 +137,7 @@ public class SshScriptExecutor implements ScriptExecutor {
 
     private void finalizeTask(TaskEntity task, TaskStatus status, String output) {
         task.setFinishedAt(java.time.LocalDateTime.now());
-        updateStatus(task, status, output);
+        updateStatus(task.getId(), status, output);
         log.info("[SSH] Task ID: {} finished with status: {}", task.getId(), status);
     }
 
@@ -149,7 +145,7 @@ public class SshScriptExecutor implements ScriptExecutor {
         log.error("[SSH] Critical error during Task ID: {}", task.getId(), e);
         sessionManager.invalidateSession(task.getServer().getId());
         task.setFinishedAt(java.time.LocalDateTime.now());
-        updateStatus(task, TaskStatus.FAILED, "SSH Error: " + e.getMessage());
+        updateStatus(task.getId(), TaskStatus.FAILED, "SSH Error: " + e.getMessage());
     }
 
     private void updateMetrics() {
@@ -157,9 +153,10 @@ public class SshScriptExecutor implements ScriptExecutor {
         unsafeCounter++;
     }
 
-    private void updateStatus(TaskEntity task, TaskStatus status, String output) {
-        log.info("[SSH] _+ Task ID: {} updated to status: {}", task.getId(), status);
-        task = entityManager.merge(task);
+    private void updateStatus(Long taskId, TaskStatus status, String output) {
+        log.info("[SSH] _+ Task ID: {} updated to status: {}", taskId, status);
+        TaskEntity task = taskRepository.findById(taskId)
+            .orElseThrow(() -> new EntityNotFoundException("Task not found: " + taskId));
         task.setStatus(status);
         task.setOutput(output);
 
