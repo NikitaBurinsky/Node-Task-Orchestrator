@@ -55,7 +55,7 @@ class TaskServiceImplTest {
     }
 
     @Test
-    void createTask_ShouldThrowServerBusyException_WhenServerHasActiveTasks() {
+    void createTaskShouldThrowServerBusyExceptionWhenServerHasActiveTasks() {
         TaskDto inputDto = new TaskDto(1L, TaskStatus.PENDING, null, null, null, null, null, null);
         List<TaskStatus> activeStatuses = List.of(TaskStatus.PENDING, TaskStatus.RUNNING);
 

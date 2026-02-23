@@ -60,7 +60,7 @@ class ServerGroupServiceImplTest {
     }
 
     @Test
-    void pingGroup_ShouldReturnMapOfStatuses() {
+    void pingGroupShouldReturnMapOfStatuses() {
         // Подготовка данных
         Long groupId = 1L;
 

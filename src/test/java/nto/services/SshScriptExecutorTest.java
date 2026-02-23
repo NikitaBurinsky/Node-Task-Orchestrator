@@ -60,7 +60,7 @@ class SshScriptExecutorTest {
     }
 
     @Test
-    void ping_ShouldReturnFalseAndInvalidateSession_WhenExceptionOccurs() throws Exception {
+    void pingShouldReturnFalseAndInvalidateSessionWhenExceptionOccurs() throws Exception {
         Long serverId = 2L;
         ServerEntity server = new ServerEntity();
         server.setId(serverId);
