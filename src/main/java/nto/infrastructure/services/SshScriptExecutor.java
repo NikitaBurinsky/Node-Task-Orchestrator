@@ -135,7 +135,7 @@ public class SshScriptExecutor implements ScriptExecutor {
             sb.append(stdOutStr);
         }
         if (!stdErrStr.isEmpty()) {
-            if (sb.length() > 0) {
+            if (!sb.isEmpty()) {
                 sb.append("\n");
             }
             sb.append("[ERR] ").append(stdErrStr);

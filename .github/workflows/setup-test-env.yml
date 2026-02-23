@@ -29,6 +29,8 @@ jobs:
             # === НАСТРОЙКИ ===
             NODE_COUNT=${{ inputs.node_count }}
             START_PORT=${{ inputs.start_port }}
+            TEST_NODE_PASS=${{ secrets.TEST_NODE_PASS }}
+            TEST_NODE_USER=${{ secrets.TEST_NODE_USER }}
             WORK_DIR=~/nto_test_infra
             IMAGE_NAME=nto-ssh-node
             
@@ -39,14 +41,13 @@ jobs:
             cd $WORK_DIR
             
             # 2. Создание Dockerfile на лету (Alpine + SSH)
-            cat <<EOF > Dockerfile
-            FROM alpine:latest
+            cat << EOF > Dockerfile
+            FROM alpine:latest  
             RUN apk add --no-cache openssh bash
             RUN ssh-keygen -A
             RUN echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config && \\
                 echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config
-            # Пароль: root / toor
-            RUN echo 'root:toor' | chpasswd
+            RUN echo '$TEST_NODE_USER:$TEST_NODE_PASS' | chpasswd
             EXPOSE 22
             CMD ["/usr/sbin/sshd", "-D"]
             EOF
