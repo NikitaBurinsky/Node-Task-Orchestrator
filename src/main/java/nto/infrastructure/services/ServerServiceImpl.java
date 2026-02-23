@@ -40,7 +40,7 @@ public class ServerServiceImpl implements ServerService {
         ServerEntity entity = serverRepository.findById(id)
             .orElseThrow(() -> new EntityNotFoundException("Server not found"));
 
-        mappingService.mapToEntity(serverDto, entity);
+
         serverRepository.save(entity);
     }
 

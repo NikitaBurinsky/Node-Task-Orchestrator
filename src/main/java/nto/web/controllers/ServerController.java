@@ -38,7 +38,7 @@ public class ServerController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Void> update(@PathVariable Long id,
-                                       @Valid @RequestBody ServerDto serverDto) {
+                                       @RequestBody ServerDto serverDto) {
         serverService.updateServer(id, serverDto);
         return ResponseEntity.noContent().build();
     }
