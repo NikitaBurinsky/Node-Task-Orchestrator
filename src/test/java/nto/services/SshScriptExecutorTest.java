@@ -15,8 +15,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class SshScriptExecutorTest {
@@ -56,7 +61,6 @@ class SshScriptExecutorTest {
 
     @Test
     void ping_ShouldReturnFalseAndInvalidateSession_WhenExceptionOccurs() throws Exception {
-        // Подготовка
         Long serverId = 2L;
         ServerEntity server = new ServerEntity();
         server.setId(serverId);
@@ -64,9 +68,10 @@ class SshScriptExecutorTest {
 
         // Настраиваем выброс исключения при попытке получить сессию
         when(serverRepository.findById(serverId)).thenReturn(Optional.of(server));
-        when(sessionManager.getOrCreateSession(server)).thenThrow(new RuntimeException("Connection timeout"));
+        when(sessionManager.getOrCreateSession(server)).thenThrow(
+            new RuntimeException("Connection timeout"));
 
-        // Действие (When)
+        // Действие
         boolean isAlive = sshScriptExecutor.ping(serverId);
 
         assertFalse(isAlive, "Пинг должен вернуть false при ошибке соединения");
