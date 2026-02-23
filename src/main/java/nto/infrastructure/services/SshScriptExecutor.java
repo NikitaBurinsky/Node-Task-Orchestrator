@@ -158,8 +158,10 @@ public class SshScriptExecutor implements ScriptExecutor {
 
     private void updateStatus(TaskEntity task, TaskStatus status, String output) {
         log.info("[SSH] _+ Task ID: {} updated to status: {}", task.getId(), status);
+        task = taskRepository.merge(task);
         task.setStatus(status);
         task.setOutput(output);
+
         TaskEntity saved = taskRepository.save(task);
         log.info("[SSH] _+ Saved Task ID: {} status: {}", saved.getId(), status);
         statusCache.put(saved);
