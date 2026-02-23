@@ -43,10 +43,15 @@ public class ServerProfile implements MapperProfile<ServerEntity, ServerDto> {
 
     @Override
     public void mapToEntity(ServerDto dto, ServerEntity entity) {
+        if(entity.getHostname() != null)
         entity.setHostname(dto.hostname());
+        if(entity.getIpAddress() != null)
         entity.setIpAddress(dto.ipAddress());
+        if(entity.getPort() != null)
         entity.setPort(dto.port());
+        if(entity.getUsername() != null)
         entity.setUsername(dto.username());
+        if(entity.getPassword() != null)
         entity.setPassword(dto.password());
     }
 }

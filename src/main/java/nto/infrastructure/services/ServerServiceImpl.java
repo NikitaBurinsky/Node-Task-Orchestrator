@@ -33,6 +33,24 @@ public class ServerServiceImpl implements ServerService {
             ServerDto.class
         );
     }
+    @Override
+    @Transactional
+    public void updateServer(Long id, ServerDto serverDto) {
+        ServerEntity entity = serverRepository.findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("Server not found"));
+
+        mappingService.mapToEntity(serverDto, entity);
+        serverRepository.save(entity);
+    }
+
+    @Override
+    @Transactional
+    public void deleteServer(Long id) {
+        if (!serverRepository.existsById(id)) {
+            throw new EntityNotFoundException("Server not found");
+        }
+        serverRepository.deleteById(id);
+    }
 
     @Override
     @Transactional(readOnly = true)
