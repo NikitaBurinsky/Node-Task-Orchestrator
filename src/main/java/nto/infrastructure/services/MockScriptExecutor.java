@@ -1,6 +1,8 @@
 package nto.infrastructure.services;
 
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import nto.application.interfaces.repositories.ServerRepository;
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Service
@@ -26,6 +29,8 @@ public class MockScriptExecutor implements ScriptExecutor {
     private final JpaTaskRepository taskRepository;
     private final TaskStatusCache statusCache;
     private final ServerRepository serverRepository;
+    @PersistenceContext
+    private final EntityManager entityManager;
 
     // Счетчики для Лабы 6 (Race Condition Demo)
     private final AtomicLong atomicCounter = new AtomicLong(0);
@@ -46,7 +51,7 @@ public class MockScriptExecutor implements ScriptExecutor {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void executeAsync(Long taskId) {
         log.info("Starting execution for Task ID: {}", taskId);
-
+        incrementCounters();
         TaskEntity task = taskRepository.findById(taskId)
             .orElseThrow(() -> new EntityNotFoundException("Task not found async: " + taskId));
 
@@ -55,7 +60,14 @@ public class MockScriptExecutor implements ScriptExecutor {
         updateStatus(task, TaskStatus.RUNNING, "Initializing connection...");
 
         try {
-            // Имитируем вывод скрипта
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            });
+
             String fakeOutput = "Connected to " + task.getServer().getHostname() + "\n" +
                 "Executing: " + task.getScript().getName() + "\n" +
                 "Done. Exit code 0.";
@@ -63,7 +75,6 @@ public class MockScriptExecutor implements ScriptExecutor {
             // 3. Успешное завершение
             task.setFinishedAt(java.time.LocalDateTime.now());
             updateStatus(task, TaskStatus.SUCCESS, fakeOutput);
-            incrementCounters();
         } catch (Exception e) {
             log.error("Task failed", e);
             task.setFinishedAt(java.time.LocalDateTime.now());
@@ -73,6 +84,7 @@ public class MockScriptExecutor implements ScriptExecutor {
 
     // Вспомогательный метод обновления
     private void updateStatus(TaskEntity task, TaskStatus status, String output) {
+        entityManager.merge(task);
         task.setStatus(status);
         task.setOutput(output);
         TaskEntity saved = taskRepository.save(task);
@@ -81,12 +93,14 @@ public class MockScriptExecutor implements ScriptExecutor {
     }
 
     private void incrementCounters() {
-        // Потокобезопасно
         atomicCounter.incrementAndGet();
-
-        // ОПАСНО! Чтение-Модификация-Запись не атомарны.
-        // При 50+ потоках значения потеряются.
-        unsafeCounter++;
+        long temp = unsafeCounter;
+        try {
+            Thread.sleep(10);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        unsafeCounter = temp + 1;
     }
 
     @Override

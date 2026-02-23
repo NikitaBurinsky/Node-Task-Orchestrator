@@ -18,6 +18,7 @@ import nto.core.enums.TaskStatus;
 import nto.core.utils.exceptions.ServerBusyException;
 import nto.infrastructure.cache.TaskStatusCache;
 import nto.infrastructure.repositories.JpaTaskRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -41,15 +42,21 @@ public class TaskServiceImpl implements TaskService {
     private final ScriptRepository scriptRepository;
     private final ScriptExecutor scriptExecutor;
 
+    //TODO
+    @Value("${nto.executor.type:mock}")
+    private String executorType;
+
     @Override
     @Transactional
     @LogExecutionTime
     public TaskDto createTask(TaskDto dto) {
-        List<TaskStatus> activeStatuses = List.of(TaskStatus.PENDING, TaskStatus.RUNNING);
-        if (taskRepository.existsByServerIdAndStatusIn(dto.serverId(), activeStatuses)) {
-            log.warn("Attempt to start task on busy server ID: {}", dto.serverId());
-            throw new ServerBusyException(
-                "Сервер уже выполняет другую задачу. Дождитесь завершения.");
+        if (!"mock".equalsIgnoreCase(executorType)) {
+            List<TaskStatus> activeStatuses = List.of(TaskStatus.PENDING, TaskStatus.RUNNING);
+            if (taskRepository.existsByServerIdAndStatusIn(dto.serverId(), activeStatuses)) {
+                log.warn("Attempt to start task on busy server ID: {}", dto.serverId());
+                throw new ServerBusyException(
+                    "Сервер уже выполняет другую задачу. Дождитесь завершения.");
+            }
         }
 
         String username = getCurrentUsername();
@@ -104,8 +111,9 @@ public class TaskServiceImpl implements TaskService {
         validateServersExistence(foundServers, dto.serverIds());
 
         // 4. Валидация прав
-        foundServers.forEach(server -> validateServerOwnership(server, username));
-
+        if (!"mock".equalsIgnoreCase(executorType)) {
+            foundServers.forEach(server -> validateServerOwnership(server, username));
+        }
         // 5. Создание и сохранение задач
         List<TaskEntity> tasksToSave = foundServers.stream()
             .map(server -> buildTask(script, server))

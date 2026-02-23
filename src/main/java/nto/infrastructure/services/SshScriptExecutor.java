@@ -70,9 +70,6 @@ public class SshScriptExecutor implements ScriptExecutor {
             .orElseThrow(() -> new EntityNotFoundException("Server not found: " + serverId));
 
         try {
-            // Если мы смогли получить сессию без Exception - значит сервер жив.
-            // Обрати внимание: мы НЕ закрываем сессию здесь!
-            // Она остается в пуле (SshSessionManager) горячей для следующих задач.
             ClientSession session = sessionManager.getOrCreateSession(server);
             return session.isOpen();
         } catch (Exception e) {
