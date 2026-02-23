@@ -10,6 +10,7 @@ import { GroupDetail } from './pages/GroupDetail';
 import { Scripts } from './pages/Scripts';
 import { Tasks } from './pages/Tasks';
 import { TaskTerminal } from './pages/TaskTerminal';
+import { Register } from './pages/Register';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} /> {}
           <Route
             path="/"
             element={

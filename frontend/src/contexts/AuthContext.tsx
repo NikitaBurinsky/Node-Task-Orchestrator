@@ -8,6 +8,7 @@ interface AuthContextType {
   login: (credentials: AuthRequestDto) => Promise<void>;
   logout: () => void;
   loading: boolean;
+  register: (credentials: AuthRequestDto) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -15,6 +16,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
@@ -31,6 +33,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(newToken);
   };
 
+    const register = async (credentials: AuthRequestDto) => {
+        // Убедись, что в authApi добавлен метод register (аналогичный login)
+        const response = await authApi.register(credentials);
+        const newToken = response.data.token!;
+        localStorage.setItem('token', newToken);
+        setToken(newToken);
+    };
+
   const logout = () => {
     localStorage.removeItem('token');
     setToken(null);
@@ -44,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         loading,
+          register
       }}
     >
       {children}

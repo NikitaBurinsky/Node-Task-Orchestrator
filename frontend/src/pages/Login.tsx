@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Terminal } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -82,11 +82,14 @@ export function Login() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-green-700 text-xs font-mono">
-              Tip: Any credentials will work in demo mode
-            </p>
-          </div>
+            <div className="mt-6 text-center space-y-2">
+                <p className="text-green-700 text-xs font-mono">
+                    Welcome
+                </p>
+                <Link to="/register" className="block text-green-700 text-xs font-mono hover:text-green-500 transition-colors">
+                    [ New here? Create an account ]
+                </Link>
+            </div>
         </div>
       </div>
     </div>
