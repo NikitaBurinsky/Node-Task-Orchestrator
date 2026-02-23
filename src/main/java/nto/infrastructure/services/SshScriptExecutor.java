@@ -1,6 +1,8 @@
 package nto.infrastructure.services;
 
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import nto.application.interfaces.repositories.ServerRepository;
@@ -34,6 +36,8 @@ public class SshScriptExecutor implements ScriptExecutor {
     private final JpaTaskRepository taskRepository;
     private final TaskStatusCache statusCache;
     private final ServerRepository serverRepository;
+    @PersistenceContext
+    private EntityManager entityManager;
     // Внедряем наш новый менеджер сессий
     private final SshSessionManager sessionManager;
     // Счетчики (для демонстрации Race Condition в Лабе 6)
@@ -158,7 +162,7 @@ public class SshScriptExecutor implements ScriptExecutor {
 
     private void updateStatus(TaskEntity task, TaskStatus status, String output) {
         log.info("[SSH] _+ Task ID: {} updated to status: {}", task.getId(), status);
-        task = taskRepository.merge(task);
+        task = entityManager.merge(task);
         task.setStatus(status);
         task.setOutput(output);
 

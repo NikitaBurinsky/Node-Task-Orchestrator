@@ -24,9 +24,7 @@ public interface JpaTaskRepository extends JpaRepository<TaskEntity, Long>, Task
         @Param("status") TaskStatus status,
         @Param("subnet") String subnet
     );
-
-    TaskEntity merge(TaskEntity t);
-
+    
     // Native SQL: Поиск по ID скрипта (для демонстрации)
     // Используем чистый SQL синтаксис Postgres
     @Query(value = "SELECT * FROM tasks WHERE script_id = :scriptId ORDER BY created_at DESC", nativeQuery = true)
