@@ -18,6 +18,10 @@ import nto.core.enums.TaskStatus;
 import nto.core.utils.exceptions.ServerBusyException;
 import nto.infrastructure.cache.TaskStatusCache;
 import nto.infrastructure.repositories.JpaTaskRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.jaxb.SpringDataJaxb;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -53,6 +57,13 @@ public class TaskServiceImpl implements TaskService {
         ScriptEntity script = getScriptIfAvailable(dto.scriptId(), username);
         ServerEntity server = getServerIfOwned(dto.serverId(), username);
         return createAndSaveTask(script, server);
+    }
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TaskDto> getTasksWithFilters(String username, TaskStatus status, Pageable pageable) {
+        // Используем JPQL версию
+        Page<TaskEntity> tasks = taskRepository.findTasksByUserAndStatusJPQL(username, status, pageable);
+        return tasks.map(entity -> mappingService.mapToDto(entity, TaskDto.class));
     }
 
     @Override

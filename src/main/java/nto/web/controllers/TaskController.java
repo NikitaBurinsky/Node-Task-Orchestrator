@@ -7,6 +7,9 @@ import lombok.RequiredArgsConstructor;
 import nto.application.dto.BulkTaskRequestDto;
 import nto.application.dto.TaskDto;
 import nto.application.interfaces.services.TaskService;
+import nto.core.enums.TaskStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -45,7 +48,14 @@ public class TaskController {
 
         return ResponseEntity.ok(task);
     }
-
+    @GetMapping("/search")
+    @Operation(summary = "Расширенный поиск задач", description = "Поиск с фильтрацией по владельцу и пагинацией")
+    public ResponseEntity<Page<TaskDto>> searchTasks(
+        @RequestParam String username,
+        @RequestParam(required = false) TaskStatus status,
+        Pageable pageable) {
+        return ResponseEntity.ok(taskService.getTasksWithFilters(username, status, pageable));
+    }
     @GetMapping("/{id}")
     @Operation(summary = "Получить задачу", description = "Возвращает детали задачи, включая вывод (output) скрипта")
     public ResponseEntity<TaskDto> getById(@PathVariable Long id) {
