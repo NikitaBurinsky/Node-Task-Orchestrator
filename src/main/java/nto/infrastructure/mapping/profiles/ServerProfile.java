@@ -43,19 +43,19 @@ public class ServerProfile implements MapperProfile<ServerEntity, ServerDto> {
 
     @Override
     public void mapToEntity(ServerDto dto, ServerEntity entity) {
-        if (entity.getHostname() != null) {
+        if (dto.hostname() != null) {
             entity.setHostname(dto.hostname());
         }
-        if (entity.getIpAddress() != null) {
+        if (dto.ipAddress() != null) {
             entity.setIpAddress(dto.ipAddress());
         }
-        if (entity.getPort() != null) {
+        if (dto.port() != null) {
             entity.setPort(dto.port());
         }
-        if (entity.getUsername() != null) {
+        if (dto.username() != null) {
             entity.setUsername(dto.username());
         }
-        if (entity.getPassword() != null) {
+        if (dto.password() != null) {
             entity.setPassword(dto.password());
         }
     }
