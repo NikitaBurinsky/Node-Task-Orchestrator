@@ -39,7 +39,7 @@ class SshScriptExecutorTest {
     private SshScriptExecutor sshScriptExecutor;
 
     @Test
-    void ping_ShouldReturnTrue_WhenSessionIsOpen() throws Exception {
+    void pingShouldReturnTrueWhenSessionIsOpen() throws Exception {
         Long serverId = 1L;
         ServerEntity server = new ServerEntity();
         server.setId(serverId);
