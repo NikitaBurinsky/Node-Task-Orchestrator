@@ -33,6 +33,7 @@ public class ServerServiceImpl implements ServerService {
             ServerDto.class
         );
     }
+
     @Override
     @Transactional
     public void updateServer(Long id, ServerDto serverDto) {

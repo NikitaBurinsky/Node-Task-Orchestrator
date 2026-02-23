@@ -11,10 +11,9 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-@RestControllerAdvice // Глобальный перехватчик для всех контроллеров
+@RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // Обработка ошибок валидации (@Valid)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationExceptions(
         MethodArgumentNotValidException ex) {

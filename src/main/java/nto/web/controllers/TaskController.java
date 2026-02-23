@@ -48,6 +48,7 @@ public class TaskController {
 
         return ResponseEntity.ok(task);
     }
+
     @GetMapping("/search")
     @Operation(summary = "Расширенный поиск задач", description = "Поиск с фильтрацией по владельцу и пагинацией")
     public ResponseEntity<Page<TaskDto>> searchTasks(
@@ -56,6 +57,7 @@ public class TaskController {
         Pageable pageable) {
         return ResponseEntity.ok(taskService.getTasksWithFilters(username, status, pageable));
     }
+
     @GetMapping("/{id}")
     @Operation(summary = "Получить задачу", description = "Возвращает детали задачи, включая вывод (output) скрипта")
     public ResponseEntity<TaskDto> getById(@PathVariable Long id) {

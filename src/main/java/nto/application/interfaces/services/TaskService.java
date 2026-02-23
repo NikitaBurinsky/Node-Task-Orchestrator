@@ -17,7 +17,9 @@ public interface TaskService {
      * @return Созданная задача
      */
     TaskDto createTask(TaskDto dto);
+
     Page<TaskDto> getTasksWithFilters(String username, TaskStatus status, Pageable pageable);
+
     /**
      * Получает последний статус выполнения скрипта на сервере.
      * Использует In-Memory Cache для скорости.

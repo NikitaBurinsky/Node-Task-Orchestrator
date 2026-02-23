@@ -31,16 +31,11 @@ import java.util.concurrent.atomic.AtomicLong;
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "nto.executor.type", havingValue = "ssh")
 public class SshScriptExecutor implements ScriptExecutor {
-    private record ExecutionResult(TaskStatus status, String output) {
-    }
-
     private final JpaTaskRepository taskRepository;
     private final TaskStatusCache statusCache;
     private final ServerRepository serverRepository;
-
     // Внедряем наш новый менеджер сессий
     private final SshSessionManager sessionManager;
-
     // Счетчики (для демонстрации Race Condition в Лабе 6)
     private final AtomicLong atomicCounter = new AtomicLong(0);
     private long unsafeCounter = 0;
@@ -83,7 +78,6 @@ public class SshScriptExecutor implements ScriptExecutor {
             return false;
         }
     }
-
 
     private TaskEntity prepareTask(Long taskId) {
         log.info("[SSH] Preparing Task ID: {}", taskId);
@@ -177,5 +171,8 @@ public class SshScriptExecutor implements ScriptExecutor {
     @Override
     public long getSuccessCountUnsafe() {
         return unsafeCounter;
+    }
+
+    private record ExecutionResult(TaskStatus status, String output) {
     }
 }

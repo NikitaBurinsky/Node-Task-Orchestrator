@@ -3,10 +3,10 @@ package nto.infrastructure.repositories;
 import nto.application.interfaces.repositories.TaskRepository;
 import nto.core.entities.TaskEntity;
 import nto.core.enums.TaskStatus;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.domain.Page;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 

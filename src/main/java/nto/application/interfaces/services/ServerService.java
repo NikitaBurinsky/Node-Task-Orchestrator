@@ -15,6 +15,8 @@ public interface ServerService {
     boolean checkConnection(Long id);
 
     List<ServerDto> getAllServers();
+
     void updateServer(Long id, ServerDto serverDto);
+
     void deleteServer(Long id);
 }

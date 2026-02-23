@@ -1,5 +1,7 @@
 package nto.infrastructure.services.ssh;
 
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import nto.core.entities.ServerEntity;
@@ -7,8 +9,6 @@ import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.session.ClientSession;
 import org.springframework.stereotype.Component;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,10 +20,9 @@ import java.util.concurrent.locks.ReentrantLock;
 @RequiredArgsConstructor
 public class SshSessionManager {
 
-    private SshClient client;
-
     private final Map<Long, ClientSession> sessions = new ConcurrentHashMap<>();
     private final Map<Long, ReentrantLock> serverLocks = new ConcurrentHashMap<>();
+    private SshClient client;
 
     @PostConstruct
     public void init() {
@@ -56,11 +55,13 @@ public class SshSessionManager {
         try {
             ClientSession existingSession = sessions.get(serverId);
 
-            if (existingSession != null && existingSession.isOpen() && !existingSession.isClosed()) {
+            if (existingSession != null && existingSession.isOpen() &&
+                !existingSession.isClosed()) {
                 return existingSession;
             }
 
-            log.info("Opening new SSH session for server {}:{}", server.getIpAddress(), server.getPort());
+            log.info("Opening new SSH session for server {}:{}", server.getIpAddress(),
+                server.getPort());
 
             ClientSession newSession = client.connect(
                 server.getUsername(),
