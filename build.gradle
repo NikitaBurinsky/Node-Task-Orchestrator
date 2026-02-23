@@ -3,7 +3,6 @@ plugins {
     id 'org.springframework.boot' version '3.2.2'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'checkstyle'
-    id "org.sonarqube" version "4.4.1.3373"
 }
 
 group = 'nto'
@@ -26,16 +25,6 @@ configurations {
         extendsFrom annotationProcessor
     }
 }
-sonar {
-    properties {
-        property "sonar.projectKey", "nikitaburinsky_Node-Task-Orchestrator" // Твой ключ из SonarCloud
-        property "sonar.organization", "nikitaburinsky" // Твоя организация
-        property "sonar.host.url", "https://sonarcloud.io"
-        // Указываем Sonar брать отчеты Jacoco (если добавишь покрытие тестами позже) и Checkstyle
-        property "sonar.java.checkstyle.reportPaths", "build/reports/checkstyle/main.xml"
-        property "sonar.gradle.skipCompile", "true"
-    }
-}
 
 repositories {
     mavenCentral()
@@ -48,7 +37,8 @@ dependencies {
     implementation 'org.apache.sshd:sshd-core:2.12.1'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
-
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.5.0'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'

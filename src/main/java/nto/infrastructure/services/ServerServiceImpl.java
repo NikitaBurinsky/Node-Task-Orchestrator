@@ -7,7 +7,9 @@ import nto.application.interfaces.services.MappingService;
 import nto.application.interfaces.services.ScriptExecutor;
 import nto.application.interfaces.services.ServerService;
 import nto.core.entities.ServerEntity;
+import nto.infrastructure.cache.TaskStatusCache;
 import nto.infrastructure.repositories.JpaServerRepository;
+import nto.infrastructure.repositories.JpaTaskRepository;
 import nto.infrastructure.repositories.JpaUserRepository;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -23,6 +25,8 @@ public class ServerServiceImpl implements ServerService {
     private final JpaServerRepository serverRepository;
     private final MappingService mappingService;
     private final JpaUserRepository userRepository;
+    private final JpaTaskRepository taskRepository;
+    private final TaskStatusCache taskStatusCache;
 
     @Override
     @Transactional(readOnly = true)
@@ -49,6 +53,7 @@ public class ServerServiceImpl implements ServerService {
         if (!serverRepository.existsById(id)) {
             throw new EntityNotFoundException("Server not found");
         }
+        taskStatusCache.evictAllByServerId(id);
         serverRepository.deleteById(id);
     }
 

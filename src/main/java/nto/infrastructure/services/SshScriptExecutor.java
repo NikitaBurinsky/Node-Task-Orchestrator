@@ -104,7 +104,7 @@ public class SshScriptExecutor implements ScriptExecutor {
 
             channel.setOut(stdout);
             channel.setErr(stderr);
-            channel.open().verify(10, TimeUnit.SECONDS);
+            channel.open().verify(15, TimeUnit.SECONDS);
 
             channel.waitFor(EnumSet.of(ClientChannelEvent.CLOSED), 0L);
 
@@ -157,9 +157,11 @@ public class SshScriptExecutor implements ScriptExecutor {
     }
 
     private void updateStatus(TaskEntity task, TaskStatus status, String output) {
+        log.info("[SSH] _+ Task ID: {} updated to status: {}", task.getId(), status);
         task.setStatus(status);
         task.setOutput(output);
         TaskEntity saved = taskRepository.save(task);
+        log.info("[SSH] _+ Saved Task ID: {} status: {}", saved.getId(), status);
         statusCache.put(saved);
     }
 

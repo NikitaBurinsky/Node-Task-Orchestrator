@@ -34,18 +34,15 @@ public class MockScriptExecutor implements ScriptExecutor {
     @Override
     public boolean ping(Long serverId) {
         log.info("[Mock] Pinging server {}", serverId);
-        // Проверяем, существует ли сервер вообще
         if (serverRepository.findById(serverId).isEmpty()) {
             log.warn("Server {} not found", serverId);
             return false;
         }
-        // Имитируем успех
         return true;
     }
 
     @Override
     @Async("taskExecutor") // Запуск в отдельном потоке
-    // REQUIRES_NEW: Важно! Создаем НОВУЮ транзакцию, независимую от той, где задача создавалась.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void executeAsync(Long taskId) {
         log.info("Starting execution for Task ID: {}", taskId);
@@ -66,7 +63,6 @@ public class MockScriptExecutor implements ScriptExecutor {
             // 3. Успешное завершение
             task.setFinishedAt(java.time.LocalDateTime.now());
             updateStatus(task, TaskStatus.SUCCESS, fakeOutput);
-            // --- DEMO RACE CONDITION ---
             incrementCounters();
         } catch (Exception e) {
             log.error("Task failed", e);
@@ -80,7 +76,7 @@ public class MockScriptExecutor implements ScriptExecutor {
         task.setStatus(status);
         task.setOutput(output);
         TaskEntity saved = taskRepository.save(task);
-        statusCache.put(saved); // Обновляем кэш, чтобы клиент видел прогресс
+        statusCache.put(saved);
         log.info("Task {} -> {}", task.getId(), status);
     }
 
