@@ -7,6 +7,7 @@ import nto.application.interfaces.services.MappingService;
 import nto.application.interfaces.services.ScriptService;
 import nto.core.entities.ScriptEntity;
 import nto.core.entities.UserEntity;
+import nto.core.utils.ErrorMessages;
 import nto.infrastructure.repositories.JpaScriptRepository;
 import nto.infrastructure.repositories.JpaUserRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -22,21 +23,12 @@ public class ScriptServiceImpl implements ScriptService {
     private final JpaScriptRepository scriptRepository;
     private final MappingService mappingService;
 
-
-    @Transactional(readOnly = true)
-    public List<ScriptDto> getAllAvailableScripts() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        // Используем наш кастомный запрос
-        List<ScriptEntity> scripts = scriptRepository.findAllAvailableForUser(username);
-        return mappingService.mapListToDto(scripts, ScriptDto.class);
-    }
-
     @Transactional
     public ScriptDto createScript(ScriptDto dto) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
         UserEntity currentUser = userRepository.findByUsername(username)
-            .orElseThrow(() -> new EntityNotFoundException("Authenticated user not found in DB"));
+            .orElseThrow(() -> new EntityNotFoundException(ErrorMessages.USER_NOT_FOUND.getMessage()));
 
         ScriptEntity entity = mappingService.mapToEntity(dto, ScriptEntity.class);
 
@@ -51,7 +43,7 @@ public class ScriptServiceImpl implements ScriptService {
     @Transactional(readOnly = true)
     public ScriptDto getScriptById(Long id) {
         ScriptEntity script = scriptRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException("Script not found with id: " + id));
+            .orElseThrow(() -> new EntityNotFoundException(ErrorMessages.SCRIPT_NOT_FOUND.getMessage() + " with id: " + id));
 
         return mappingService.mapToDto(script, ScriptDto.class);
     }
@@ -59,8 +51,6 @@ public class ScriptServiceImpl implements ScriptService {
     @Override
     @Transactional(readOnly = true)
     public List<ScriptDto> getAllScripts() {
-        //TODO
-        // Здесь можно добавить пагинацию в будущем
         List<ScriptEntity> scripts = scriptRepository.findAll();
 
         return mappingService.mapListToDto(scripts, ScriptDto.class);
@@ -69,8 +59,8 @@ public class ScriptServiceImpl implements ScriptService {
     @Override
     @Transactional
     public void deleteScript(Long id) {
-        if (!scriptRepository.findById(id).isPresent()) {
-            throw new EntityNotFoundException("Script not found with id: " + id);
+        if (!scriptRepository.findById(id).isEmpty()) {
+            throw new EntityNotFoundException(ErrorMessages.SCRIPT_NOT_FOUND.getMessage() + " with id: " + id);
         }
         scriptRepository.deleteById(id);
     }

@@ -48,12 +48,12 @@ class ServerGroupServiceImplTest {
     @InjectMocks
     private ServerGroupServiceImpl groupService;
 
-    private final String TEST_USERNAME = "admin";
+    private final String testUsername = "admin";
 
     @BeforeEach
     void setUpSecurityContext() {
         Authentication authentication = mock(Authentication.class);
-        when(authentication.getName()).thenReturn(TEST_USERNAME);
+        when(authentication.getName()).thenReturn(testUsername);
         SecurityContext securityContext = mock(SecurityContext.class);
         when(securityContext.getAuthentication()).thenReturn(authentication);
         SecurityContextHolder.setContext(securityContext);
@@ -65,7 +65,7 @@ class ServerGroupServiceImplTest {
         Long groupId = 1L;
 
         UserEntity owner = new UserEntity();
-        owner.setUsername(TEST_USERNAME);
+        owner.setUsername(testUsername);
 
         ServerEntity server1 = new ServerEntity();
         server1.setId(10L);

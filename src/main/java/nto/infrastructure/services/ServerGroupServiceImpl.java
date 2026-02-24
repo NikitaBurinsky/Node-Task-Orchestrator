@@ -13,6 +13,7 @@ import nto.core.entities.ServerGroupEntity;
 import nto.core.entities.TaskEntity;
 import nto.core.entities.UserEntity;
 import nto.core.enums.TaskStatus;
+import nto.core.utils.ErrorMessages;
 import nto.infrastructure.cache.TaskStatusCache;
 import nto.infrastructure.repositories.JpaScriptRepository;
 import nto.infrastructure.repositories.JpaServerGroupRepository;
@@ -48,7 +49,7 @@ public class ServerGroupServiceImpl implements ServerGroupService {
     public ServerGroupDto createGroup(ServerGroupDto dto) {
         String username = getCurrentUsername();
         UserEntity user = userRepository.findByUsername(username)
-            .orElseThrow(() -> new EntityNotFoundException("User not found"));
+            .orElseThrow(() -> new EntityNotFoundException(ErrorMessages.USER_NOT_FOUND.getMessage()));
 
         ServerGroupEntity entity = mappingService.mapToEntity(dto, ServerGroupEntity.class);
         entity.setOwner(user);
@@ -170,16 +171,16 @@ public class ServerGroupServiceImpl implements ServerGroupService {
         ServerGroupEntity group = groupRepository.findById(id)
             .orElseThrow(() -> new EntityNotFoundException("Group not found"));
         if (!group.getOwner().getUsername().equals(getCurrentUsername())) {
-            throw new AccessDeniedException("Access Denied: Not your group");
+            throw new AccessDeniedException(ErrorMessages.ACCESS_DENIED + ": Not your group");
         }
         return group;
     }
 
     private ServerEntity getServerIfOwned(Long id) {
         ServerEntity server = serverRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException("Server not found"));
+            .orElseThrow(() -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
         if (!server.getOwner().getUsername().equals(getCurrentUsername())) {
-            throw new AccessDeniedException("Access Denied: Not your server");
+            throw new AccessDeniedException(ErrorMessages.ACCESS_DENIED + ": Not your server");
         }
         return server;
     }

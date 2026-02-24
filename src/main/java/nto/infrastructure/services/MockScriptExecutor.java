@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Service
@@ -60,14 +61,6 @@ public class MockScriptExecutor implements ScriptExecutor {
         updateStatus(task, TaskStatus.RUNNING, "Initializing connection...");
 
         try {
-            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                try {
-                    Thread.sleep(2000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            });
-
             String fakeOutput = "Connected to " + task.getServer().getHostname() + "\n" +
                 "Executing: " + task.getScript().getName() + "\n" +
                 "Done. Exit code 0.";

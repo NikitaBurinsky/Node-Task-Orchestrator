@@ -7,6 +7,7 @@ import nto.application.interfaces.services.MappingService;
 import nto.application.interfaces.services.ScriptExecutor;
 import nto.application.interfaces.services.ServerService;
 import nto.core.entities.ServerEntity;
+import nto.core.utils.ErrorMessages;
 import nto.infrastructure.cache.TaskStatusCache;
 import nto.infrastructure.repositories.JpaServerRepository;
 import nto.infrastructure.repositories.JpaTaskRepository;
@@ -25,7 +26,6 @@ public class ServerServiceImpl implements ServerService {
     private final JpaServerRepository serverRepository;
     private final MappingService mappingService;
     private final JpaUserRepository userRepository;
-    private final JpaTaskRepository taskRepository;
     private final TaskStatusCache taskStatusCache;
 
     @Override
@@ -42,7 +42,7 @@ public class ServerServiceImpl implements ServerService {
     @Transactional
     public void updateServer(Long id, ServerDto serverDto) {
         ServerEntity entity = serverRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException("Server not found"));
+            .orElseThrow(() -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
         mappingService.mapToEntity(serverDto, entity);
         serverRepository.save(entity);
     }
@@ -51,7 +51,7 @@ public class ServerServiceImpl implements ServerService {
     @Transactional
     public void deleteServer(Long id) {
         if (!serverRepository.existsById(id)) {
-            throw new EntityNotFoundException("Server not found");
+            throw new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage());
         }
         taskStatusCache.evictAllByServerId(id);
         serverRepository.deleteById(id);
@@ -61,7 +61,7 @@ public class ServerServiceImpl implements ServerService {
     @Transactional(readOnly = true)
     public ServerDto getServerById(Long id) {
         ServerEntity server = serverRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException("Server not found"));
+            .orElseThrow(() -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
 
         return mappingService.mapToDto(server, ServerDto.class);
     }
@@ -101,10 +101,10 @@ public class ServerServiceImpl implements ServerService {
     public boolean checkConnection(Long id) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         ServerEntity server = serverRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException("Server not found"));
+            .orElseThrow(() -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
 
         if (!server.getOwner().getUsername().equals(username)) {
-            throw new AccessDeniedException("Access Denied: You do not own this server");
+            throw new AccessDeniedException(ErrorMessages.ACCESS_DENIED.getMessage() + ": You do not own this server");
         }
         return scriptExecutor.ping(id);
     }

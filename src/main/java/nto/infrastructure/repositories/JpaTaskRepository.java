@@ -51,20 +51,4 @@ public interface JpaTaskRepository extends JpaRepository<TaskEntity, Long>, Task
         @Param("status") TaskStatus status,
         Pageable pageable
     );
-/*
-    @Query(value = "SELECT t.* FROM tasks t " +
-        "JOIN servers s ON t.server_id = s.id " +
-        "JOIN users u ON s.owner_id = u.id " +
-        "WHERE u.username = :username " +
-        "AND (:status IS NULL OR t.status = :status)",
-        countQuery = "SELECT count(*) FROM tasks t " +
-            "JOIN servers s ON t.server_id = s.id " +
-            "JOIN users u ON s.owner_id = u.id " +
-            "WHERE u.username = :username",
-        nativeQuery = true)
-    Page<TaskEntity> findTasksByUserAndStatusNative(
-        @Param("username") String username,
-        @Param("status") String status,
-        Pageable pageable
-    );*/
 }

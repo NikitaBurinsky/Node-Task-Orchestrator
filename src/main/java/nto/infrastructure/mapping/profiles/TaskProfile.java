@@ -7,6 +7,7 @@ import nto.application.interfaces.mapping.MapperProfile;
 import nto.application.interfaces.repositories.ScriptRepository;
 import nto.application.interfaces.repositories.ServerRepository;
 import nto.core.entities.TaskEntity;
+import nto.core.utils.ErrorMessages;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -65,12 +66,12 @@ public class TaskProfile implements MapperProfile<TaskEntity, TaskDto> {
         if (dto.serverId() != null) {
             entity.setServer(serverRepository.findById(dto.serverId())
                 .orElseThrow(
-                    () -> new EntityNotFoundException("Server not found: " + dto.serverId())));
+                    () -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage() + dto.serverId())));
         }
         if (dto.scriptId() != null) {
             entity.setScript(scriptRepository.findById(dto.scriptId())
                 .orElseThrow(
-                    () -> new EntityNotFoundException("Script not found: " + dto.scriptId())));
+                    () -> new EntityNotFoundException(ErrorMessages.SCRIPT_NOT_FOUND.getMessage() + dto.scriptId())));
         }
     }
 }

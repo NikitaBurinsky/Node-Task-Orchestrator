@@ -43,12 +43,12 @@ class TaskServiceImplTest {
     @InjectMocks
     private TaskServiceImpl taskService;
 
-    private final String TEST_USERNAME = "test_user";
+    private final String testUser = "test_user";
 
     @BeforeEach
     void setUpSecurityContext() {
         Authentication authentication = mock(Authentication.class);
-        lenient().when(authentication.getName()).thenReturn(TEST_USERNAME);
+        lenient().when(authentication.getName()).thenReturn(testUser);
         SecurityContext securityContext = mock(SecurityContext.class);
         lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
         SecurityContextHolder.setContext(securityContext);
