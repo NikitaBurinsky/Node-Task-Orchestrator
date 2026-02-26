@@ -42,7 +42,6 @@ public class TaskServiceImpl implements TaskService {
     private final ScriptRepository scriptRepository;
     private final ScriptExecutor scriptExecutor;
 
-    //TODO
     @Value("${nto.executor.type:mock}")
     private String executorType;
 

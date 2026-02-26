@@ -52,17 +52,13 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_KEY }}
           script: |
-            # Переходим в целевую директорию
             cd ~/nto_app
             
-            # Создаем .env файл динамически. Docker-compose подхватит его 
-            # для интерполяции переменных (аналог внедрения секретов в Kubernetes или Azure KeyVault)
             echo "DB_PORT=${{ secrets.DB_PORT }}" > .env
             echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
             echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
             echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
             echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
                   
-            # Останавливаем старые контейнеры и поднимаем новые с пересборкой образа
             docker-compose down
             docker-compose up -d --build

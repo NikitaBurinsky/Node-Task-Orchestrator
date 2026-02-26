@@ -10,7 +10,6 @@ import nto.core.entities.ServerEntity;
 import nto.core.utils.ErrorMessages;
 import nto.infrastructure.cache.TaskStatusCache;
 import nto.infrastructure.repositories.JpaServerRepository;
-import nto.infrastructure.repositories.JpaTaskRepository;
 import nto.infrastructure.repositories.JpaUserRepository;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;

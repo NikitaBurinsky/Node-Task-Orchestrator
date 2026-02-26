@@ -34,13 +34,11 @@ jobs:
             WORK_DIR=~/nto_test_infra
             IMAGE_NAME=nto-ssh-node
             
-            echo "🚀 Начало развертывания $NODE_COUNT нод..."
+            echo " Начало развертывания $NODE_COUNT нод..."
             
-            # 1. Подготовка рабочей директории
             mkdir -p $WORK_DIR
             cd $WORK_DIR
             
-            # 2. Создание Dockerfile на лету (Alpine + SSH)
             cat << EOF > Dockerfile
             FROM alpine:latest  
             RUN apk add --no-cache openssh bash
@@ -52,9 +50,7 @@ jobs:
             CMD ["/usr/sbin/sshd", "-D"]
             EOF
             
-            # 3. Очистка старых контейнеров (Idempotency)
             echo "🧹 Очистка старых контейнеров..."
-            # Останавливаем и удаляем контейнеры по имени
             for i in $(seq 1 $NODE_COUNT); do
               CONTAINER_NAME="nto_node_$i"
               if docker ps -a --format '{{.Names}}' | grep -q "^$CONTAINER_NAME$"; then
@@ -63,25 +59,20 @@ jobs:
               fi
             done
             
-            # 4. Сборка образа 
             echo "🔨 Сборка Docker образа..."
             docker build -t $IMAGE_NAME .
  
-            # 5. Запуск цикла создания контейнеров  
             echo "🔥 Запуск контейнеров..."
             
             for i in $(seq 1 $NODE_COUNT); do
-              # Вычисляем порт: START_PORT + i
               CURRENT_PORT=$((START_PORT + i))
               CONTAINER_NAME="nto_node_$i"
             
-              # Проверяем, не занят ли порт
               if docker ps -a --format '{{.Ports}}' | grep -q "0.0.0.0:$CURRENT_PORT"; then
                 echo "⚠️ Порт $CURRENT_PORT уже занят, пропускаем создание $CONTAINER_NAME"
                 continue
               fi
             
-              # Запускаем контейнер (ВАЖНО: без экранирования $)
               docker run -d \
                 -p $CURRENT_PORT:22 \
                 --name $CONTAINER_NAME \

@@ -150,7 +150,6 @@ public class ServerGroupServiceImpl implements ServerGroupService {
         List<TaskEntity> savedTasks = taskRepository.saveAll(tasks);
 
 
-        //TODO
         taskRepository.saveAll(savedTasks);
 
         savedTasks.forEach(task -> {
