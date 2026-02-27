@@ -49,7 +49,8 @@ public class ServerGroupServiceImpl implements ServerGroupService {
     public ServerGroupDto createGroup(ServerGroupDto dto) {
         String username = getCurrentUsername();
         UserEntity user = userRepository.findByUsername(username)
-            .orElseThrow(() -> new EntityNotFoundException(ErrorMessages.USER_NOT_FOUND.getMessage()));
+            .orElseThrow(
+                () -> new EntityNotFoundException(ErrorMessages.USER_NOT_FOUND.getMessage()));
 
         ServerGroupEntity entity = mappingService.mapToEntity(dto, ServerGroupEntity.class);
         entity.setOwner(user);
@@ -177,7 +178,8 @@ public class ServerGroupServiceImpl implements ServerGroupService {
 
     private ServerEntity getServerIfOwned(Long id) {
         ServerEntity server = serverRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
+            .orElseThrow(
+                () -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
         if (!server.getOwner().getUsername().equals(getCurrentUsername())) {
             throw new AccessDeniedException(ErrorMessages.ACCESS_DENIED + ": Not your server");
         }

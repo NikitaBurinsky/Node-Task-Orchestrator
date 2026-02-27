@@ -15,7 +15,6 @@ import nto.infrastructure.services.ssh.SshSessionManager;
 import org.apache.sshd.client.channel.ChannelExec;
 import org.apache.sshd.client.channel.ClientChannelEvent;
 import org.apache.sshd.client.session.ClientSession;
-import org.springdoc.api.ErrorMessage;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -65,7 +64,8 @@ public class SshScriptExecutor implements ScriptExecutor {
         log.info("[SSH] Pinging server ID: {}", serverId);
 
         ServerEntity server = serverRepository.findById(serverId)
-            .orElseThrow(() -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage() + serverId));
+            .orElseThrow(() -> new EntityNotFoundException(
+                ErrorMessages.SERVER_NOT_FOUND.getMessage() + serverId));
 
         try {
             ClientSession session = sessionManager.getOrCreateSession(server);

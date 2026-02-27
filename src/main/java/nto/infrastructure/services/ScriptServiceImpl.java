@@ -28,7 +28,8 @@ public class ScriptServiceImpl implements ScriptService {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
         UserEntity currentUser = userRepository.findByUsername(username)
-            .orElseThrow(() -> new EntityNotFoundException(ErrorMessages.USER_NOT_FOUND.getMessage()));
+            .orElseThrow(
+                () -> new EntityNotFoundException(ErrorMessages.USER_NOT_FOUND.getMessage()));
 
         ScriptEntity entity = mappingService.mapToEntity(dto, ScriptEntity.class);
 
@@ -43,7 +44,8 @@ public class ScriptServiceImpl implements ScriptService {
     @Transactional(readOnly = true)
     public ScriptDto getScriptById(Long id) {
         ScriptEntity script = scriptRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException(ErrorMessages.SCRIPT_NOT_FOUND.getMessage() + " with id: " + id));
+            .orElseThrow(() -> new EntityNotFoundException(
+                ErrorMessages.SCRIPT_NOT_FOUND.getMessage() + " with id: " + id));
 
         return mappingService.mapToDto(script, ScriptDto.class);
     }
@@ -60,7 +62,8 @@ public class ScriptServiceImpl implements ScriptService {
     @Transactional
     public void deleteScript(Long id) {
         if (!scriptRepository.findById(id).isEmpty()) {
-            throw new EntityNotFoundException(ErrorMessages.SCRIPT_NOT_FOUND.getMessage() + " with id: " + id);
+            throw new EntityNotFoundException(
+                ErrorMessages.SCRIPT_NOT_FOUND.getMessage() + " with id: " + id);
         }
         scriptRepository.deleteById(id);
     }

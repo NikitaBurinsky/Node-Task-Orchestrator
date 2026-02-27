@@ -8,14 +8,16 @@ public enum ErrorMessages {
     UNAUTHORIZED("Unauthorized"),
     ACCESS_DENIED("Access Denied"),
     INVALID_INPUT("Bad credentials"),
-    DATABASE_ERROR("Database error"),;
+    DATABASE_ERROR("Database error"),
+    ;
 
     private final String message;
 
     ErrorMessages(String message) {
         this.message = message;
     }
-    public String getMessageMany(){
+
+    public String getMessageMany() {
         return "Many -> " + message;
     }
 

@@ -54,7 +54,6 @@ public class ServerController {
         return ResponseEntity.ok(serverService.getAllServers());
     }
 
-    // GET /api/servers?hostname=srv-01
     @GetMapping("/{id}/ping")
     @Operation(summary = "Проверка доступности", description = "Пытается установить SSH соединение с сервером")
     public ResponseEntity<Map<String, Object>> pingServer(@PathVariable Long id) {

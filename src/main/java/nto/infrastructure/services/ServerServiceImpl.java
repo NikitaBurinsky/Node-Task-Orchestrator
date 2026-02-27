@@ -41,7 +41,8 @@ public class ServerServiceImpl implements ServerService {
     @Transactional
     public void updateServer(Long id, ServerDto serverDto) {
         ServerEntity entity = serverRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
+            .orElseThrow(
+                () -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
         mappingService.mapToEntity(serverDto, entity);
         serverRepository.save(entity);
     }
@@ -60,7 +61,8 @@ public class ServerServiceImpl implements ServerService {
     @Transactional(readOnly = true)
     public ServerDto getServerById(Long id) {
         ServerEntity server = serverRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
+            .orElseThrow(
+                () -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
 
         return mappingService.mapToDto(server, ServerDto.class);
     }
@@ -100,10 +102,12 @@ public class ServerServiceImpl implements ServerService {
     public boolean checkConnection(Long id) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         ServerEntity server = serverRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
+            .orElseThrow(
+                () -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
 
         if (!server.getOwner().getUsername().equals(username)) {
-            throw new AccessDeniedException(ErrorMessages.ACCESS_DENIED.getMessage() + ": You do not own this server");
+            throw new AccessDeniedException(
+                ErrorMessages.ACCESS_DENIED.getMessage() + ": You do not own this server");
         }
         return scriptExecutor.ping(id);
     }

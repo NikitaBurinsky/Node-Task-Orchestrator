@@ -20,9 +20,11 @@ public class TaskStatusCache {
             taskscache.put(task.getId(), task);
         }
     }
+
     public void evictAllByServerId(Long serverId) {
         cache.keySet().removeIf(key -> key.serverId().equals(serverId));
     }
+
     public TaskEntity get(Long serverId, Long scriptId) {
         return cache.get(new TaskCacheKey(serverId, scriptId));
     }

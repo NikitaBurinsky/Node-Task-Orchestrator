@@ -66,12 +66,14 @@ public class TaskProfile implements MapperProfile<TaskEntity, TaskDto> {
         if (dto.serverId() != null) {
             entity.setServer(serverRepository.findById(dto.serverId())
                 .orElseThrow(
-                    () -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage() + dto.serverId())));
+                    () -> new EntityNotFoundException(
+                        ErrorMessages.SERVER_NOT_FOUND.getMessage() + dto.serverId())));
         }
         if (dto.scriptId() != null) {
             entity.setScript(scriptRepository.findById(dto.scriptId())
                 .orElseThrow(
-                    () -> new EntityNotFoundException(ErrorMessages.SCRIPT_NOT_FOUND.getMessage() + dto.scriptId())));
+                    () -> new EntityNotFoundException(
+                        ErrorMessages.SCRIPT_NOT_FOUND.getMessage() + dto.scriptId())));
         }
     }
 }
