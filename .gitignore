@@ -39,12 +39,13 @@ out/
 
 ## TESTS ##
 src/test/resources/application-test.properties
-src/test/java/nto/demonstrations/*
+src/test/java/nto/demonstrations/
 build/reports/tests/
 build/test-results/
-logs/*
+logs/
 
 ### VS Code ###
 .vscode/
 src/main/resources/application-local.properties
 src/main/resources/application-local.properties
+/logs
