@@ -17,9 +17,9 @@ jobs:
           script: |
             # === НАСТРОЙКИ ИЗ application.properties ===
             CONTAINER_NAME="nto_db_container"
-            DB_NAME="nto_db"
+            DB_NAME=${{ secrets.DB_NAME }}
             DB_USER="postgres"
-            DB_PASS="supermegrovibroblastsuperdupersocialist"
+            DB_PASS=${{ secrets.DB_PASS }}
             HOST_PORT="5400"
             VOLUME_NAME="nto_pg_data"
 
