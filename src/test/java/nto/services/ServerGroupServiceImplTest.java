@@ -36,19 +36,25 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ServerGroupServiceImplTest {
 
-    @Mock private JpaServerGroupRepository groupRepository;
-    @Mock private JpaServerRepository serverRepository;
-    @Mock private JpaUserRepository userRepository;
-    @Mock private JpaScriptRepository scriptRepository;
-    @Mock private JpaTaskRepository taskRepository;
-    @Mock private MappingService mappingService;
-    @Mock private ScriptExecutor scriptExecutor;
-    @Mock private TaskStatusCache statusCache;
-
+    private final String testUsername = "admin";
+    @Mock
+    private JpaServerGroupRepository groupRepository;
+    @Mock
+    private JpaServerRepository serverRepository;
+    @Mock
+    private JpaUserRepository userRepository;
+    @Mock
+    private JpaScriptRepository scriptRepository;
+    @Mock
+    private JpaTaskRepository taskRepository;
+    @Mock
+    private MappingService mappingService;
+    @Mock
+    private ScriptExecutor scriptExecutor;
+    @Mock
+    private TaskStatusCache statusCache;
     @InjectMocks
     private ServerGroupServiceImpl groupService;
-
-    private final String testUsername = "admin";
 
     @BeforeEach
     void setUpSecurityContext() {

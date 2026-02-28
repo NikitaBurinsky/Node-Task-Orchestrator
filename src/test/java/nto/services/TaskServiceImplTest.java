@@ -33,17 +33,21 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class TaskServiceImplTest {
 
-    @Mock private JpaTaskRepository taskRepository;
-    @Mock private TaskStatusCache statusCache;
-    @Mock private MappingService mappingService;
-    @Mock private ServerRepository serverRepository;
-    @Mock private ScriptRepository scriptRepository;
-    @Mock private ScriptExecutor scriptExecutor;
-
+    private final String testUser = "test_user";
+    @Mock
+    private JpaTaskRepository taskRepository;
+    @Mock
+    private TaskStatusCache statusCache;
+    @Mock
+    private MappingService mappingService;
+    @Mock
+    private ServerRepository serverRepository;
+    @Mock
+    private ScriptRepository scriptRepository;
+    @Mock
+    private ScriptExecutor scriptExecutor;
     @InjectMocks
     private TaskServiceImpl taskService;
-
-    private final String testUser = "test_user";
 
     @BeforeEach
     void setUpSecurityContext() {

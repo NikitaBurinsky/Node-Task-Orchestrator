@@ -2,15 +2,17 @@ package nto.application.interfaces.repositories;
 
 import nto.core.entities.TaskEntity;
 import nto.core.enums.TaskStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
 public interface TaskRepository {
-    // Методы для Лабы 3 (Сложные запросы)
+    List<TaskEntity> findLatestTasksByGroupId(Long groupId);
 
-    // 1. JPQL поиск
-    List<TaskEntity> findByStatusAndServerSubnet(TaskStatus status, String subnet);
+    Page<TaskEntity> findTasksByUserAndStatusJPQL(String username, TaskStatus status,
+                                                  Pageable pageable);
 
-    // 2. Native SQL поиск
-    List<TaskEntity> findByScriptIdNative(Long scriptId);
+    Page<TaskEntity> findTasksByUserAndStatusNative(String username, TaskStatus status,
+                                                    Pageable pageable);
 }
