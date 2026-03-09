@@ -40,8 +40,7 @@ public interface JpaTaskRepository extends JpaRepository<TaskEntity, Long>, Task
         @Param("status") TaskStatus status,
         Pageable pageable
     );
-
-    //TODO
+    
     // Native SQL
     // 1. Прописываем явные JOIN через внешние ключи
     // 2. Добавляем countQuery для корректной работы Page<T> (аналог .Count() в LINQ перед .Skip().Take())
