@@ -17,7 +17,9 @@ import lombok.NoArgsConstructor;
 import nto.core.converters.TaskStatusConverter;
 import nto.core.entities.base.BaseEntity;
 import nto.core.enums.TaskStatus;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
