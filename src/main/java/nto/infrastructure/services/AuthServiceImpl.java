@@ -6,7 +6,10 @@ import nto.application.dto.AuthResponseDto;
 import nto.application.dto.UserDto;
 import nto.application.interfaces.repositories.UserRepository;
 import nto.application.interfaces.services.AuthService;
+import nto.core.entities.ServerGroupEntity;
 import nto.core.entities.UserEntity;
+import nto.core.utils.ServerGroupDefaults;
+import nto.infrastructure.repositories.JpaServerGroupRepository;
 import nto.infrastructure.security.JwtUtils;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -24,6 +27,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtUtils jwtUtils;
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
+    private final JpaServerGroupRepository serverGroupRepository;
 
     @Override
     @Transactional
@@ -38,6 +42,7 @@ public class AuthServiceImpl implements AuthService {
             .build();
 
         userRepository.save(user);
+        ensureDefaultGroup(user);
 
         // Сразу генерируем токен для входа
         var userDetails = userDetailsService.loadUserByUsername(user.getUsername());
@@ -54,5 +59,14 @@ public class AuthServiceImpl implements AuthService {
         var userDetails = userDetailsService.loadUserByUsername(dto.username());
         var token = jwtUtils.generateToken(userDetails);
         return new AuthResponseDto(token);
+    }
+
+    private void ensureDefaultGroup(UserEntity user) {
+        serverGroupRepository.findByOwnerUsernameAndName(user.getUsername(),
+                ServerGroupDefaults.DEFAULT_GROUP_NAME)
+            .orElseGet(() -> serverGroupRepository.save(ServerGroupEntity.builder()
+                .name(ServerGroupDefaults.DEFAULT_GROUP_NAME)
+                .owner(user)
+                .build()));
     }
 }

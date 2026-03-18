@@ -20,12 +20,15 @@ public class ServerProfile implements MapperProfile<ServerEntity, ServerDto> {
 
     @Override
     public ServerDto mapToDto(ServerEntity entity) {
+        String sshUsername = entity.getSshUsername() != null
+            ? entity.getSshUsername().getUsername()
+            : null;
         return new ServerDto(
             entity.getId(),
             entity.getHostname(),
             entity.getIpAddress(),
             entity.getPort(),
-            entity.getUsername(),
+            sshUsername,
             entity.getPassword()
         );
     }
@@ -37,7 +40,6 @@ public class ServerProfile implements MapperProfile<ServerEntity, ServerDto> {
             .ipAddress(dto.ipAddress())
             .port(dto.port())
             .password(dto.password())
-            .username(dto.username())
             .build();
     }
 
@@ -51,9 +53,6 @@ public class ServerProfile implements MapperProfile<ServerEntity, ServerDto> {
         }
         if (dto.port() != null) {
             entity.setPort(dto.port());
-        }
-        if (dto.username() != null) {
-            entity.setUsername(dto.username());
         }
         if (dto.password() != null) {
             entity.setPassword(dto.password());

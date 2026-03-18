@@ -6,17 +6,21 @@ import type { TaskDto } from '../types/api';
 
 export function Tasks() {
   const [tasks, setTasks] = useState<TaskDto[]>([]);
+  const [statusFilter, setStatusFilter] = useState<'ALL' | TaskDto['status']>('ALL');
+  const [search, setSearch] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchTasks();
     const interval = setInterval(fetchTasks, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [statusFilter]);
 
   const fetchTasks = async () => {
     try {
-      const response = await tasksApi.getAll();
+      const params =
+        statusFilter === 'ALL' || !statusFilter ? undefined : { status: statusFilter };
+      const response = await tasksApi.getAll(params);
       setTasks(response.data.sort((a, b) => (b.id || 0) - (a.id || 0)));
     } catch (error) {
       console.error('Failed to fetch tasks:', error);
@@ -68,6 +72,20 @@ export function Tasks() {
     }
   };
 
+  const filteredTasks = tasks.filter((task) => {
+    if (!search.trim()) return true;
+    const term = search.trim();
+    const serverId = task.serverId?.toString() ?? '';
+    const scriptId = task.scriptId?.toString() ?? '';
+    return serverId.includes(term) || scriptId.includes(term);
+  });
+
+  const hasActiveFilters = statusFilter !== 'ALL' || search.trim().length > 0;
+  const clearFilters = () => {
+    setStatusFilter('ALL');
+    setSearch('');
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -75,8 +93,58 @@ export function Tasks() {
         <p className="text-green-700 font-mono mt-1">Execution history</p>
       </div>
 
+      <div className="bg-gray-900 border border-green-900 rounded-lg p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-green-500 font-mono text-sm mb-2">
+              Status
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(e.target.value as 'ALL' | TaskDto['status'])
+              }
+              className="w-full bg-black border border-green-900 rounded px-3 py-2 text-green-400 font-mono focus:outline-none focus:border-green-500"
+            >
+              <option value="ALL">ALL</option>
+              <option value="PENDING">PENDING</option>
+              <option value="RUNNING">RUNNING</option>
+              <option value="SUCCESS">SUCCESS</option>
+              <option value="FAILED">FAILED</option>
+              <option value="CANCELLED">CANCELLED</option>
+            </select>
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-green-500 font-mono text-sm mb-2">
+              Search (Server ID or Script ID)
+            </label>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="e.g. 12"
+              className="w-full bg-black border border-green-900 rounded px-3 py-2 text-green-400 font-mono focus:outline-none focus:border-green-500"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end mt-4">
+          <button
+            type="button"
+            onClick={clearFilters}
+            disabled={!hasActiveFilters}
+            className={`px-3 py-2 rounded font-mono text-sm transition-colors ${
+              hasActiveFilters
+                ? 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                : 'bg-gray-900 text-gray-600 cursor-not-allowed'
+            }`}
+          >
+            Clear filters
+          </button>
+        </div>
+      </div>
+
       <div className="space-y-3">
-        {tasks.map((task) => (
+        {filteredTasks.map((task) => (
           <div
             key={task.id}
             onClick={() => navigate(`/tasks/${task.id}`)}
@@ -118,7 +186,14 @@ export function Tasks() {
         ))}
       </div>
 
-      {tasks.length === 0 && (
+      {filteredTasks.length === 0 && hasActiveFilters && (
+        <div className="text-center py-12">
+          <List className="w-16 h-16 text-green-900 mx-auto mb-4" />
+          <p className="text-green-700 font-mono">No tasks match filters</p>
+        </div>
+      )}
+
+      {tasks.length === 0 && !hasActiveFilters && (
         <div className="text-center py-12">
           <List className="w-16 h-16 text-green-900 mx-auto mb-4" />
           <p className="text-green-700 font-mono">No tasks executed yet</p>

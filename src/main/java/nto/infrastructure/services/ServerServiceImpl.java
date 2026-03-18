@@ -7,9 +7,15 @@ import nto.application.interfaces.services.MappingService;
 import nto.application.interfaces.services.ScriptExecutor;
 import nto.application.interfaces.services.ServerService;
 import nto.core.entities.ServerEntity;
+import nto.core.entities.ServerGroupEntity;
+import nto.core.entities.SshUsernameEntity;
+import nto.core.entities.UserEntity;
 import nto.core.utils.ErrorMessages;
+import nto.core.utils.ServerGroupDefaults;
 import nto.infrastructure.cache.TaskStatusCache;
+import nto.infrastructure.repositories.JpaServerGroupRepository;
 import nto.infrastructure.repositories.JpaServerRepository;
+import nto.infrastructure.repositories.JpaSshUsernameRepository;
 import nto.infrastructure.repositories.JpaUserRepository;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -23,8 +29,10 @@ import java.util.List;
 public class ServerServiceImpl implements ServerService {
     private final ScriptExecutor scriptExecutor;
     private final JpaServerRepository serverRepository;
+    private final JpaServerGroupRepository groupRepository;
     private final MappingService mappingService;
     private final JpaUserRepository userRepository;
+    private final JpaSshUsernameRepository sshUsernameRepository;
     private final TaskStatusCache taskStatusCache;
 
     @Override
@@ -40,19 +48,26 @@ public class ServerServiceImpl implements ServerService {
     @Override
     @Transactional
     public void updateServer(Long id, ServerDto serverDto) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
         ServerEntity entity = serverRepository.findById(id)
             .orElseThrow(
                 () -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
+        ensureServerOwned(entity, username);
         mappingService.mapToEntity(serverDto, entity);
+        if (serverDto.username() != null) {
+            entity.setSshUsername(resolveSshUsername(getCurrentUser(username), serverDto.username()));
+        }
         serverRepository.save(entity);
     }
 
     @Override
     @Transactional
     public void deleteServer(Long id) {
-        if (!serverRepository.existsById(id)) {
-            throw new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage());
-        }
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        ServerEntity server = serverRepository.findById(id)
+            .orElseThrow(
+                () -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
+        ensureServerOwned(server, username);
         taskStatusCache.evictAllByServerId(id);
         serverRepository.deleteById(id);
     }
@@ -63,6 +78,8 @@ public class ServerServiceImpl implements ServerService {
         ServerEntity server = serverRepository.findById(id)
             .orElseThrow(
                 () -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        ensureServerOwned(server, username);
 
         return mappingService.mapToDto(server, ServerDto.class);
     }
@@ -85,13 +102,14 @@ public class ServerServiceImpl implements ServerService {
     public ServerDto createServer(ServerDto dto) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        nto.core.entities.UserEntity currentUser = userRepository.findByUsername(username)
-            .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        UserEntity currentUser = getCurrentUser(username);
 
         ServerEntity entity = mappingService.mapToEntity(dto, ServerEntity.class);
 
-        // Привязываем владельца
-        entity.setOwner(currentUser);
+        entity.setSshUsername(resolveSshUsername(currentUser, dto.username()));
+        ServerGroupEntity defaultGroup = getOrCreateDefaultGroup(currentUser);
+        entity.getGroups().add(defaultGroup);
+        defaultGroup.getServers().add(entity);
 
         ServerEntity saved = serverRepository.save(entity);
 
@@ -105,10 +123,46 @@ public class ServerServiceImpl implements ServerService {
             .orElseThrow(
                 () -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
 
-        if (!server.getOwner().getUsername().equals(username)) {
+        ensureServerOwned(server, username);
+        return scriptExecutor.ping(id);
+    }
+
+    private UserEntity getCurrentUser(String username) {
+        return userRepository.findByUsername(username)
+            .orElseThrow(() -> new EntityNotFoundException(ErrorMessages.USER_NOT_FOUND.getMessage()));
+    }
+
+    private ServerGroupEntity getOrCreateDefaultGroup(UserEntity user) {
+        return groupRepository.findByOwnerUsernameAndName(user.getUsername(),
+                ServerGroupDefaults.DEFAULT_GROUP_NAME)
+            .orElseGet(() -> groupRepository.save(ServerGroupEntity.builder()
+                .name(ServerGroupDefaults.DEFAULT_GROUP_NAME)
+                .owner(user)
+                .build()));
+    }
+
+    private void ensureServerOwned(ServerEntity server, String username) {
+        boolean owned = server.getGroups().stream()
+            .anyMatch(group -> group.getOwner() != null
+                && username.equals(group.getOwner().getUsername()));
+        if (!owned) {
             throw new AccessDeniedException(
                 ErrorMessages.ACCESS_DENIED.getMessage() + ": You do not own this server");
         }
-        return scriptExecutor.ping(id);
+    }
+
+    private SshUsernameEntity resolveSshUsername(UserEntity owner,
+                                                 String rawUsername) {
+        String username = rawUsername == null ? null : rawUsername.trim();
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("SSH username is required");
+        }
+        return sshUsernameRepository.findByOwnerAndUsername(owner, username)
+            .orElseGet(() -> sshUsernameRepository.save(
+                SshUsernameEntity.builder()
+                    .owner(owner)
+                    .username(username)
+                    .build()
+            ));
     }
 }

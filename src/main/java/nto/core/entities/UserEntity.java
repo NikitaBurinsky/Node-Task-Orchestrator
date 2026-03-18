@@ -34,14 +34,13 @@ public class UserEntity implements BaseEntity {
 
     private String password; // Будет хранить хеш
 
-    // Связь 1:N (User -> Servers)
-    // mappedBy = "owner" указывает на поле 'owner' в классе ServerEntity
-    @Builder.Default
-    @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ServerEntity> servers = new ArrayList<>();
-
     // Связь 1:N (User -> Scripts)
     @Builder.Default
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ScriptEntity> scripts = new ArrayList<>();
+
+    // SSH usernames owned by the user
+    @Builder.Default
+    @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SshUsernameEntity> sshUsernames = new ArrayList<>();
 }

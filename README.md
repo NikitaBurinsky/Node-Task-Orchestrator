@@ -32,3 +32,9 @@
 Система поддерживает два режима исполнения задач (переключается в `application.properties` через `nto.executor.type`):
 - `mock`: Имитация задержки (для разработки).
 - `ssh`: Реальное подключение к серверам через JSch.
+
+## Ownership Model
+
+- Users own server groups.
+- Each user gets a default group (`Default`) on registration.
+- Servers do not reference users directly; new servers are added to the user's default group.

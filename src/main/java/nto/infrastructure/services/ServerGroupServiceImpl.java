@@ -14,6 +14,7 @@ import nto.core.entities.TaskEntity;
 import nto.core.entities.UserEntity;
 import nto.core.enums.TaskStatus;
 import nto.core.utils.ErrorMessages;
+import nto.core.utils.ServerGroupDefaults;
 import nto.infrastructure.cache.TaskStatusCache;
 import nto.infrastructure.repositories.JpaScriptRepository;
 import nto.infrastructure.repositories.JpaServerGroupRepository;
@@ -78,6 +79,9 @@ public class ServerGroupServiceImpl implements ServerGroupService {
     @Transactional
     public void deleteGroup(Long id) {
         ServerGroupEntity group = getGroupIfOwned(id);
+        if (ServerGroupDefaults.DEFAULT_GROUP_NAME.equals(group.getName())) {
+            throw new IllegalStateException("Default group cannot be deleted");
+        }
         // Разрываем связи с серверами перед удалением, чтобы не посыпался Cascade (если настроен жестко)
         // Но так как у нас ManyToMany владелец Server, hibernate сам почистит link table
         groupRepository.delete(group);
@@ -100,6 +104,9 @@ public class ServerGroupServiceImpl implements ServerGroupService {
     @Transactional
     public void removeServerFromGroup(Long groupId, Long serverId) {
         ServerGroupEntity group = getGroupIfOwned(groupId);
+        if (ServerGroupDefaults.DEFAULT_GROUP_NAME.equals(group.getName())) {
+            throw new IllegalStateException("Cannot remove server from default group");
+        }
         ServerEntity server = getServerIfOwned(serverId);
 
         server.getGroups().remove(group);
@@ -180,7 +187,11 @@ public class ServerGroupServiceImpl implements ServerGroupService {
         ServerEntity server = serverRepository.findById(id)
             .orElseThrow(
                 () -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
-        if (!server.getOwner().getUsername().equals(getCurrentUsername())) {
+        String username = getCurrentUsername();
+        boolean owned = server.getGroups().stream()
+            .anyMatch(group -> group.getOwner() != null
+                && username.equals(group.getOwner().getUsername()));
+        if (!owned) {
             throw new AccessDeniedException(ErrorMessages.ACCESS_DENIED + ": Not your server");
         }
         return server;

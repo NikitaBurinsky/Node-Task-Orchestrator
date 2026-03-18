@@ -14,9 +14,12 @@ public interface JpaServerGroupRepository extends JpaRepository<ServerGroupEntit
     ServerGroupRepository {
 
     // Подгружаем серверы сразу, чтобы избежать N+1 при маппинге DTO
-    @EntityGraph(attributePaths = {"servers", "owner"})
+    @EntityGraph(attributePaths = {"servers", "servers.sshUsername", "owner"})
     Optional<ServerGroupEntity> findById(Long id);
 
-    @EntityGraph(attributePaths = {"servers", "owner"})
+    @EntityGraph(attributePaths = {"servers", "servers.sshUsername", "owner"})
     List<ServerGroupEntity> findAllByOwnerUsername(String username);
+
+    @EntityGraph(attributePaths = {"servers", "servers.sshUsername", "owner"})
+    Optional<ServerGroupEntity> findByOwnerUsernameAndName(String username, String name);
 }

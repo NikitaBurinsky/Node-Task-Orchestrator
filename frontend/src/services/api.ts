@@ -64,7 +64,7 @@ export const groupsApi = {
 };
 
 export const tasksApi = {
-  getAll: () => api.get<TaskDto[]>('/tasks'),
+  getAll: (params?: { status?: string }) => api.get<TaskDto[]>('/tasks', { params }),
   getById: (id: number) => api.get<TaskDto>(`/tasks/${id}`),
   create: (data: TaskDto) => api.post<TaskDto>('/tasks', data),
   createBulk: (data: BulkTaskRequestDto) => api.post<TaskDto[]>('/tasks/bulk', data),

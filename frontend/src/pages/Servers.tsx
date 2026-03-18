@@ -120,7 +120,7 @@ export function Servers() {
               </div>
               <div>
                 <label className="block text-green-500 font-mono text-sm mb-2">
-                  Username
+                  SSH Username
                 </label>
                 <input
                   type="text"
@@ -206,7 +206,7 @@ export function Servers() {
               </div>
               <div className="space-y-2 text-sm font-mono mb-4">
                 <div className="flex justify-between text-green-700">
-                  <span>User:</span>
+                  <span>SSH User:</span>
                   <span className="text-green-500">{server.username}</span>
                 </div>
                 <div className="flex justify-between text-green-700">

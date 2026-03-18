@@ -47,20 +47,17 @@ public class ServerEntity implements BaseEntity {
 
     private Integer port;
 
-    @Column(nullable = false)
-    private String username;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ssh_username_id")
+    private SshUsernameEntity sshUsername;
 
     private String password;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private UserEntity owner;
 
     // (M:N)
     @Builder.Default
     @ManyToMany
     @JoinTable(
-        name = "server_group_link",
+        name = "server_groups",
         joinColumns = @JoinColumn(name = "server_id"),
         inverseJoinColumns = @JoinColumn(name = "group_id")
     )

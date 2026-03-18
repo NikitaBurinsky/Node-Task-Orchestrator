@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Layers, Trash2 } from 'lucide-react';
+import { Plus, Layers, Trash2, Lock } from 'lucide-react';
 import { groupsApi } from '../services/api';
 import type { ServerGroupDto} from '../types/api';
 
@@ -8,6 +8,7 @@ export function ServerGroups() {
   const [groups, setGroups] = useState<ServerGroupDto[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [groupName, setGroupName] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -18,8 +19,10 @@ export function ServerGroups() {
     try {
         const groupsRes = await groupsApi.getAll();
       setGroups(groupsRes.data);
+      setError(null);
     } catch (error) {
       console.error('Failed to fetch data:', error);
+      setError('Failed to load groups.');
     }
   };
 
@@ -30,19 +33,25 @@ export function ServerGroups() {
       await groupsApi.create({ name: groupName });
       setGroupName('');
       setShowAddForm(false);
+      setError(null);
       fetchData();
     } catch (error) {
       console.error('Failed to create group:', error);
+      setError('Failed to create group.');
     }
   };
+
+  const isDefaultGroup = (group: ServerGroupDto) => group.name === 'Default';
 
   const handleDelete = async (id: number) => {
     if (confirm('Delete this group?')) {
       try {
         await groupsApi.delete(id);
+        setError(null);
         fetchData();
       } catch (error) {
         console.error('Failed to delete group:', error);
+        setError('Failed to delete group.');
       }
     }
   };
@@ -50,6 +59,12 @@ export function ServerGroups() {
     const getServerCount = (group: ServerGroupDto) => {
         return group.servers?.length || 0;
     };
+
+  const sortedGroups = [...groups].sort((a, b) => {
+    if (isDefaultGroup(a) && !isDefaultGroup(b)) return -1;
+    if (!isDefaultGroup(a) && isDefaultGroup(b)) return 1;
+    return a.name.localeCompare(b.name);
+  });
 
   return (
     <div className="space-y-6">
@@ -66,6 +81,12 @@ export function ServerGroups() {
           <span>New Group</span>
         </button>
       </div>
+
+      {error && (
+        <div className="border border-red-800 bg-red-950 text-red-300 px-4 py-2 rounded font-mono text-sm">
+          {error}
+        </div>
+      )}
 
       {showAddForm && (
         <div className="bg-gray-900 border border-green-900 rounded-lg p-6">
@@ -106,7 +127,9 @@ export function ServerGroups() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {groups.map((group) => (
+        {sortedGroups.map((group) => {
+          const isDefault = isDefaultGroup(group);
+          return (
           <div
             key={group.id}
             className="bg-gray-900 border border-green-900 rounded-lg p-6 hover:border-green-700 transition-colors cursor-pointer"
@@ -116,18 +139,39 @@ export function ServerGroups() {
               <div className="flex items-center space-x-3">
                 <Layers className="w-6 h-6 text-green-500" />
                 <div>
-                  <h3 className="text-green-400 font-mono font-bold">{group.name}</h3>
+                  <div className="flex items-center space-x-2">
+                    <h3 className="text-green-400 font-mono font-bold">{group.name}</h3>
+                    {isDefault && (
+                      <Lock className="w-4 h-4 text-green-600" />
+                    )}
+                  </div>
                   <p className="text-green-700 text-sm font-mono">
                     {getServerCount(group)} server{getServerCount(group) !== 1 ? 's' : ''}
                   </p>
+                  {isDefault && (
+                    <p
+                      className="text-green-600 text-xs font-mono mt-1"
+                      title="Default group is always present"
+                    >
+                      Default group
+                    </p>
+                  )}
                 </div>
               </div>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleDelete(group.id!);
+                  if (!isDefault) {
+                    handleDelete(group.id!);
+                  }
                 }}
-                className="text-red-500 hover:text-red-400 transition-colors"
+                className={`transition-colors ${
+                  isDefault
+                    ? 'text-red-900 cursor-not-allowed'
+                    : 'text-red-500 hover:text-red-400'
+                }`}
+                disabled={isDefault}
+                title={isDefault ? 'Default group cannot be deleted' : 'Delete group'}
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -136,7 +180,8 @@ export function ServerGroups() {
               Click to manage servers
             </div>
           </div>
-        ))}
+        );
+        })}
       </div>
 
       {groups.length === 0 && !showAddForm && (

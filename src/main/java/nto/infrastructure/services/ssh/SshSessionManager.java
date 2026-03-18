@@ -63,8 +63,15 @@ public class SshSessionManager {
             log.info("Opening new SSH session for server {}:{}", server.getIpAddress(),
                 server.getPort());
 
+            String sshUsername = server.getSshUsername() != null
+                ? server.getSshUsername().getUsername()
+                : null;
+            if (sshUsername == null || sshUsername.isBlank()) {
+                throw new IllegalStateException("SSH username is not set for server: " + serverId);
+            }
+
             ClientSession newSession = client.connect(
-                server.getUsername(),
+                sshUsername,
                 server.getIpAddress(),
                 server.getPort()
             ).verify(10, TimeUnit.SECONDS).getSession();

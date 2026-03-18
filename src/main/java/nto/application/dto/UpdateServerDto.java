@@ -13,7 +13,8 @@ public record UpdateServerDto(
     @Min(1) @Max(65535)
     Integer port,
 
-    @NotBlank String username,
+    @NotBlank(message = "SSH username is required")
+    String username,
 
     String password
 ) implements BaseDto {

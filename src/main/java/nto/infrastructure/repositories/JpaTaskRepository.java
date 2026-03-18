@@ -20,7 +20,9 @@ public interface JpaTaskRepository extends JpaRepository<TaskEntity, Long>, Task
     Optional<TaskEntity> findFirstByServerIdAndScriptIdOrderByCreatedAtDesc(Long serverId,
                                                                             Long scriptId);
 
-    List<TaskEntity> findAllByServerOwnerUsername(String username);
+    @Query("SELECT DISTINCT t FROM TaskEntity t JOIN t.server s JOIN s.groups g " +
+        "WHERE g.owner.username = :username")
+    List<TaskEntity> findAllByServerGroupOwnerUsername(@Param("username") String username);
 
     @Query("SELECT t FROM TaskEntity t WHERE t.sourceGroup.id = :groupId " +
         "AND t.createdAt = (SELECT MAX(t2.createdAt) FROM TaskEntity t2 WHERE t2.sourceGroup.id = :groupId)")
@@ -31,9 +33,10 @@ public interface JpaTaskRepository extends JpaRepository<TaskEntity, Long>, Task
     //
     // ДЕМОНСТРАЦИЯ ДЛЯ 3 ЛАБЫ
 
-    // 1. JPQL: Фильтрация по вложенным сущностям (Server -> Owner)
-    @Query("SELECT t FROM TaskEntity t " +
-        "WHERE t.server.owner.username = :username " +
+    // 1. JPQL: Фильтрация по вложенным сущностям (Server -> Groups -> Owner)
+    @Query("SELECT DISTINCT t FROM TaskEntity t " +
+        "JOIN t.server s JOIN s.groups g " +
+        "WHERE g.owner.username = :username " +
         "AND (:status IS NULL OR t.status = :status)")
     Page<TaskEntity> findTasksByUserAndStatusJPQL(
         @Param("username") String username,
@@ -46,18 +49,22 @@ public interface JpaTaskRepository extends JpaRepository<TaskEntity, Long>, Task
     // 2. Добавляем countQuery для корректной работы Page<T> (аналог .Count() в LINQ перед .Skip().Take())
     // 3. Используем CAST(... AS text), чтобы Postgres не ругался на неизвестный тип при передаче null
     @Query(
-        value = "SELECT t.* FROM tasks t " +
+        value = "SELECT DISTINCT t.* FROM tasks t " +
             "JOIN servers s ON t.server_id = s.id " +
-            "JOIN users u ON s.user_id = u.id " +
+            "JOIN server_groups sg ON sg.server_id = s.id " +
+            "JOIN groups g ON sg.group_id = g.id " +
+            "JOIN users u ON g.user_id = u.id " +
             "WHERE u.username = :username " +
-            "AND (CAST(:#{#status != null ? #status.name() : null} AS text) IS NULL " +
-            "  OR t.status = CAST(:#{#status != null ? #status.name() : null} AS text))",
-        countQuery = "SELECT COUNT(t.id) FROM tasks t " +
+            "AND (CAST(:#{#status != null ? #status.name() : null} AS task_status) IS NULL " +
+            "  OR t.status = CAST(:#{#status != null ? #status.name() : null} AS task_status))",
+        countQuery = "SELECT COUNT(DISTINCT t.id) FROM tasks t " +
             "JOIN servers s ON t.server_id = s.id " +
-            "JOIN users u ON s.user_id = u.id " +
+            "JOIN server_groups sg ON sg.server_id = s.id " +
+            "JOIN groups g ON sg.group_id = g.id " +
+            "JOIN users u ON g.user_id = u.id " +
             "WHERE u.username = :username " +
-            "AND (CAST(:#{#status != null ? #status.name() : null} AS text) IS NULL " +
-            "  OR t.status = CAST(:#{#status != null ? #status.name() : null} AS text))",
+            "AND (CAST(:#{#status != null ? #status.name() : null} AS task_status) IS NULL " +
+            "  OR t.status = CAST(:#{#status != null ? #status.name() : null} AS task_status))",
         nativeQuery = true
     )
     Page<TaskEntity> findTasksByUserAndStatusNative(

@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
 public class TaskServiceImpl implements TaskService {
 
     private final JpaTaskRepository taskRepository;
-    private final TaskStatusCache statusCache;
+    private final TaskStatusCache tasksCache;
     private final MappingService mappingService;
     private final ServerRepository serverRepository;
     private final ScriptRepository scriptRepository;
@@ -82,13 +82,13 @@ public class TaskServiceImpl implements TaskService {
         getServerIfOwned(serverId, username);
         getScriptIfAvailable(scriptId, username);
 
-        // 1. Hot Data (Cache)
-        TaskEntity cached = statusCache.get(serverId, scriptId);
+        // Cache
+        TaskEntity cached = tasksCache.get(serverId, scriptId);
         if (cached != null) {
             return mappingService.mapToDto(cached, TaskDto.class);
         }
 
-        // 2. Cache Miss -> DB Hit
+        // Cache Miss -> DB Hit
         return taskRepository.findFirstByServerIdAndScriptIdOrderByCreatedAtDesc(serverId, scriptId)
             .map(entity -> mappingService.mapToDto(entity, TaskDto.class))
             .orElse(null);
@@ -122,7 +122,7 @@ public class TaskServiceImpl implements TaskService {
 
         // 6. Сайд-эффекты (Кэш + Async Executor)
         savedTasks.forEach(task -> {
-            statusCache.put(task);
+            tasksCache.put(task);
             scriptExecutor.executeAsync(task.getId());
         });
 
@@ -138,11 +138,8 @@ public class TaskServiceImpl implements TaskService {
             .orElseThrow(() -> new EntityNotFoundException("Task not found: " + id));
 
         // Security Check
-        if (!task.getServer().getOwner().getUsername().equals(username)) {
-            throw new AccessDeniedException(
-                "Access Denied: Task does not belong to your server context.");
-        }
-
+        validateServerOwnership(task.getServer(), username);
+        tasksCache.put(task);
         return mappingService.mapToDto(task, TaskDto.class);
     }
 
@@ -152,7 +149,7 @@ public class TaskServiceImpl implements TaskService {
         String username = getCurrentUsername();
 
         // Security Check: Возвращаем только задачи с серверов текущего пользователя
-        List<TaskEntity> tasks = taskRepository.findAllByServerOwnerUsername(username);
+        List<TaskEntity> tasks = taskRepository.findAllByServerGroupOwnerUsername(username);
 
         return mappingService.mapListToDto(tasks, TaskDto.class);
     }
@@ -186,7 +183,10 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private void validateServerOwnership(ServerEntity server, String username) {
-        if (!server.getOwner().getUsername().equals(username)) {
+        boolean owned = server.getGroups().stream()
+            .anyMatch(group -> group.getOwner() != null
+                && username.equals(group.getOwner().getUsername()));
+        if (!owned) {
             throw new AccessDeniedException(
                 "Access Denied: Server " + server.getHostname() + " (ID: " + server.getId() +
                     ") does not belong to you."
@@ -213,7 +213,7 @@ public class TaskServiceImpl implements TaskService {
         TaskEntity entity = buildTask(script, server);
         TaskEntity saved = taskRepository.save(entity);
 
-        statusCache.put(saved);
+        tasksCache.put(saved);
         scriptExecutor.executeAsync(saved.getId());
 
         return mappingService.mapToDto(saved, TaskDto.class);

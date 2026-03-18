@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Activity, Play, X } from 'lucide-react';
+import { ArrowLeft, Plus, Activity, Play, X, Lock } from 'lucide-react';
 import { groupsApi, serversApi, scriptsApi } from '../services/api';
 import type { ServerGroupDto, ServerDto, ScriptDto, PingResultDto } from '../types/api';
 
@@ -16,6 +16,7 @@ export function GroupDetail() {
   const [selectedScript, setSelectedScript] = useState<number | null>(null);
   const [pingResults, setPingResults] = useState<PingResultDto>({});
   const [pinging, setPinging] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -34,6 +35,7 @@ export function GroupDetail() {
             setGroup(groupRes.data);
             setAllServers(serversRes.data);
             setScripts(scriptsRes.data);
+            setError(null);
 
             // --- БЫЛО (Старая логика) ---
             // const serverIds = groupRes.data.serverIds || [];
@@ -50,25 +52,32 @@ export function GroupDetail() {
 
         } catch (error) {
             console.error('Failed to fetch data:', error);
+            setError('Failed to load group data.');
         }
     };
+
+  const isDefaultGroup = group?.name === 'Default';
 
   const handleAddServer = async (serverId: number) => {
     try {
       await groupsApi.addServer(parseInt(id!), serverId);
       setShowAddServer(false);
+      setError(null);
       fetchData();
     } catch (error) {
       console.error('Failed to add server:', error);
+      setError('Failed to add server to group.');
     }
   };
 
   const handleRemoveServer = async (serverId: number) => {
     try {
       await groupsApi.removeServer(parseInt(id!), serverId);
+      setError(null);
       fetchData();
     } catch (error) {
       console.error('Failed to remove server:', error);
+      setError('Failed to remove server from group.');
     }
   };
 
@@ -77,9 +86,11 @@ export function GroupDetail() {
     try {
       const response = await groupsApi.ping(parseInt(id!));
       setPingResults(response.data);
+      setError(null);
       setTimeout(() => setPingResults({}), 5000);
     } catch (error) {
       console.error('Failed to ping group:', error);
+      setError('Failed to ping group.');
     } finally {
       setPinging(false);
     }
@@ -90,11 +101,13 @@ export function GroupDetail() {
     try {
       const response = await groupsApi.execute(parseInt(id!), selectedScript);
       setShowExecute(false);
+      setError(null);
       if (response.data.length > 0) {
         navigate(`/tasks/${response.data[0].id}`);
       }
     } catch (error) {
       console.error('Failed to execute script:', error);
+      setError('Failed to execute script.');
     }
   };
 
@@ -126,12 +139,29 @@ export function GroupDetail() {
           <ArrowLeft className="w-6 h-6" />
         </button>
         <div>
-          <h1 className="text-3xl font-bold text-green-500 font-mono">{group.name}</h1>
+          <div className="flex items-center space-x-2">
+            <h1 className="text-3xl font-bold text-green-500 font-mono">{group.name}</h1>
+            {isDefaultGroup && (
+              <div
+                className="flex items-center space-x-1 text-green-600 text-xs font-mono"
+                title="Default group is always present"
+              >
+                <Lock className="w-3 h-3" />
+                <span>Default group</span>
+              </div>
+            )}
+          </div>
           <p className="text-green-700 font-mono mt-1">
             {groupServers.length} server{groupServers.length !== 1 ? 's' : ''}
           </p>
         </div>
       </div>
+
+      {error && (
+        <div className="border border-red-800 bg-red-950 text-red-300 px-4 py-2 rounded font-mono text-sm">
+          {error}
+        </div>
+      )}
 
       <div className="flex space-x-3">
         <button
@@ -253,15 +283,25 @@ export function GroupDetail() {
                   <p className="text-green-700 text-sm font-mono">{server.ipAddress}</p>
                 </div>
                 <button
-                  onClick={() => handleRemoveServer(server.id!)}
-                  className="text-red-500 hover:text-red-400 transition-colors"
+                  onClick={() => {
+                    if (!isDefaultGroup) {
+                      handleRemoveServer(server.id!);
+                    }
+                  }}
+                  className={`transition-colors ${
+                    isDefaultGroup
+                      ? 'text-red-900 cursor-not-allowed'
+                      : 'text-red-500 hover:text-red-400'
+                  }`}
+                  disabled={isDefaultGroup}
+                  title={isDefaultGroup ? 'Default group cannot remove servers' : 'Remove server'}
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
               <div className="space-y-2 text-sm font-mono">
                 <div className="flex justify-between text-green-700">
-                  <span>User:</span>
+                  <span>SSH User:</span>
                   <span className="text-green-500">{server.username}</span>
                 </div>
                 <div className="flex justify-between text-green-700">
@@ -276,7 +316,9 @@ export function GroupDetail() {
 
       {groupServers.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-green-700 font-mono">No servers in this group</p>
+          <p className="text-green-700 font-mono">
+            {isDefaultGroup ? 'Default group is empty' : 'No servers in this group'}
+          </p>
         </div>
       )}
     </div>

@@ -54,7 +54,6 @@ public class MockScriptExecutor implements ScriptExecutor {
         TaskEntity task = taskRepository.findById(taskId)
             .orElseThrow(() -> new EntityNotFoundException("Task not found async: " + taskId));
 
-        // 1. Ставим статус RUNNING
         task.setStartedAt(java.time.LocalDateTime.now());
         updateStatus(task, TaskStatus.RUNNING, "Initializing connection...");
 
@@ -63,7 +62,6 @@ public class MockScriptExecutor implements ScriptExecutor {
                 "Executing: " + task.getScript().getName() + "\n" +
                 "Done. Exit code 0.";
 
-            // 3. Успешное завершение
             task.setFinishedAt(java.time.LocalDateTime.now());
             updateStatus(task, TaskStatus.SUCCESS, fakeOutput);
         } catch (Exception e) {
@@ -73,7 +71,6 @@ public class MockScriptExecutor implements ScriptExecutor {
         }
     }
 
-    // Вспомогательный метод обновления
     private void updateStatus(TaskEntity task, TaskStatus status, String output) {
         entityManager.merge(task);
         task.setStatus(status);
