@@ -51,11 +51,9 @@ class SshScriptExecutorTest {
         when(sessionManager.getOrCreateSession(server)).thenReturn(mockSession);
         when(mockSession.isOpen()).thenReturn(true);
 
-        // Действие
         boolean isAlive = sshScriptExecutor.ping(serverId);
 
         assertTrue(isAlive, "Пинг должен быть успешен, если сессия открыта");
-        // мы не пытались инвалидировать кэш сессии при успехе
         verify(sessionManager, never()).invalidateSession(serverId);
     }
 
@@ -66,7 +64,6 @@ class SshScriptExecutorTest {
         server.setId(serverId);
         server.setIpAddress("10.0.0.1");
 
-        // Настраиваем выброс исключения при попытке получить сессию
         when(serverRepository.findById(serverId)).thenReturn(Optional.of(server));
         when(sessionManager.getOrCreateSession(server)).thenThrow(
             new RuntimeException("Connection timeout"));

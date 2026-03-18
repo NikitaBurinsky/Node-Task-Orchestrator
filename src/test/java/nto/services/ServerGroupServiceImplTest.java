@@ -67,7 +67,6 @@ class ServerGroupServiceImplTest {
 
     @Test
     void pingGroupShouldReturnMapOfStatuses() {
-        // Подготовка данных
         Long groupId = 1L;
 
         UserEntity owner = new UserEntity();

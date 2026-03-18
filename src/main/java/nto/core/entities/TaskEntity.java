@@ -1,9 +1,8 @@
 package nto.core.entities;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -15,6 +14,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import nto.core.converters.TaskStatusConverter;
 import nto.core.entities.base.BaseEntity;
 import nto.core.enums.TaskStatus;
 import org.hibernate.annotations.CreationTimestamp;
@@ -33,7 +33,8 @@ public class TaskEntity implements BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = TaskStatusConverter.class)
+    @Column(columnDefinition = "SMALLINT")
     private TaskStatus status;
 
     @Column(columnDefinition = "TEXT")

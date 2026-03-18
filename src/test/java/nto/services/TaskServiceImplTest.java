@@ -69,7 +69,6 @@ class TaskServiceImplTest {
         assertThrows(ServerBusyException.class, () -> taskService.createTask(inputDto),
             "Должна выбрасываться ошибка, если управляемый сервер занят");
 
-        // не пошли дальше по коду
         verify(scriptRepository, never()).findById(any());
     }
 }

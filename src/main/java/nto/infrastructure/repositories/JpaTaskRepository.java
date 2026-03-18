@@ -29,7 +29,7 @@ public interface JpaTaskRepository extends JpaRepository<TaskEntity, Long>, Task
     boolean existsByServerIdAndStatusIn(Long serverId, Collection<TaskStatus> statuses);
 
     //
-     // ДЕМОНСТРАЦИЯ ДЛЯ 3 ЛАБЫ
+    // ДЕМОНСТРАЦИЯ ДЛЯ 3 ЛАБЫ
 
     // 1. JPQL: Фильтрация по вложенным сущностям (Server -> Owner)
     @Query("SELECT t FROM TaskEntity t " +
@@ -40,7 +40,7 @@ public interface JpaTaskRepository extends JpaRepository<TaskEntity, Long>, Task
         @Param("status") TaskStatus status,
         Pageable pageable
     );
-    
+
     // Native SQL
     // 1. Прописываем явные JOIN через внешние ключи
     // 2. Добавляем countQuery для корректной работы Page<T> (аналог .Count() в LINQ перед .Skip().Take())
