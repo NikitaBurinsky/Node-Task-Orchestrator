@@ -44,5 +44,14 @@ jobs:
               --restart unless-stopped \
               postgres:15-alpine
 
+            echo "Waiting for PostgreSQL to become ready..."
+            until docker exec $CONTAINER_NAME pg_isready -U $DB_USER -d $DB_NAME > /dev/null 2>&1; do
+              sleep 2
+            done
+
+            echo "Ensuring task_status enum exists..."
+            docker exec $CONTAINER_NAME psql -U $DB_USER -d $DB_NAME -v ON_ERROR_STOP=1 -c \
+              "DO \$\$ BEGIN CREATE TYPE task_status AS ENUM ('PENDING','RUNNING','SUCCESS','FAILED','CANCELLED'); EXCEPTION WHEN duplicate_object THEN NULL; END \$\$;"
+
             echo "✅ База данных успешно запущена!"
             echo "Доступна по адресу: jdbc:postgresql://$VPS_HOST:$HOST_PORT/$DB_NAME"
