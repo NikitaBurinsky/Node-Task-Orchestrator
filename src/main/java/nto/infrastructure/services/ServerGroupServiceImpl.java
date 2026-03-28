@@ -82,8 +82,8 @@ public class ServerGroupServiceImpl implements ServerGroupService {
         if (ServerGroupDefaults.DEFAULT_GROUP_NAME.equals(group.getName())) {
             throw new IllegalStateException("Default group cannot be deleted");
         }
-        // Разрываем связи с серверами перед удалением, чтобы не посыпался Cascade (если настроен жестко)
-        // Но так как у нас ManyToMany владелец Server, hibernate сам почистит link table
+        
+        
         groupRepository.delete(group);
     }
 
@@ -93,11 +93,11 @@ public class ServerGroupServiceImpl implements ServerGroupService {
         ServerGroupEntity group = getGroupIfOwned(groupId);
         ServerEntity server = getServerIfOwned(serverId);
 
-        // ManyToMany связь, обновляем обе стороны для консистентности в кэше hibernate
+        
         server.getGroups().add(group);
         group.getServers().add(server);
 
-        serverRepository.save(server); // Server владелец связи
+        serverRepository.save(server); 
     }
 
     @Override
@@ -120,7 +120,7 @@ public class ServerGroupServiceImpl implements ServerGroupService {
         ServerGroupEntity group = getGroupIfOwned(groupId);
         Map<Long, Boolean> results = new HashMap<>();
 
-        // В реальном проекте это лучше делать параллельно (Parallel Stream или CompletableFuture)
+        
         for (ServerEntity server : group.getServers()) {
             boolean alive = scriptExecutor.ping(server.getId());
             results.put(server.getId(), alive);
@@ -145,7 +145,7 @@ public class ServerGroupServiceImpl implements ServerGroupService {
             throw new IllegalStateException("Group is empty");
         }
 
-        // Создаем задачи
+        
         List<TaskEntity> tasks = group.getServers().stream()
             .map(server -> TaskEntity.builder()
                 .server(server)
@@ -168,7 +168,7 @@ public class ServerGroupServiceImpl implements ServerGroupService {
         return mappingService.mapListToDto(savedTasks, TaskDto.class);
     }
 
-    // --- Private Helpers ---
+    
 
     private String getCurrentUsername() {
         return SecurityContextHolder.getContext().getAuthentication().getName();
@@ -200,10 +200,10 @@ public class ServerGroupServiceImpl implements ServerGroupService {
     @Override
     @Transactional(readOnly = true)
     public List<TaskDto> getLastGroupExecutionStatus(Long groupId) {
-        // 1. Проверяем доступ к группе (Security)
+        
         getGroupIfOwned(groupId);
 
-        // 2. Ищем последние задачи через умный запрос в репозитории
+        
         List<TaskEntity> tasks = taskRepository.findLatestTasksByGroupId(groupId);
 
         return mappingService.mapListToDto(tasks, TaskDto.class);

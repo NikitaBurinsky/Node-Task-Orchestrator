@@ -10,6 +10,6 @@ import java.util.Optional;
 @Repository
 public interface JpaUserRepository extends JpaRepository<UserEntity, Long>, UserRepository {
 
-    // Дополнительный метод Spring Data (не входит в базовый интерфейс, но полезен)
+    
     Optional<UserEntity> findByUsername(String username);
 }

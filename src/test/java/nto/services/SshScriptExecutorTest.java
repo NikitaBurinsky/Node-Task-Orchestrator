@@ -68,7 +68,7 @@ class SshScriptExecutorTest {
         when(sessionManager.getOrCreateSession(server)).thenThrow(
             new RuntimeException("Connection timeout"));
 
-        // Действие
+        
         boolean isAlive = sshScriptExecutor.ping(serverId);
 
         assertFalse(isAlive, "Пинг должен вернуть false при ошибке соединения");

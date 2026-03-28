@@ -51,7 +51,8 @@ export interface AuthRequestDto {
 }
 
 export interface AuthResponseDto {
-  token?: string;
+  accessToken?: string;
+  expiresIn?: number;
 }
 
 export interface StatsDto {

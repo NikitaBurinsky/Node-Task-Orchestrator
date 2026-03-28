@@ -1,6 +1,7 @@
 package nto.web.controllers;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import nto.application.dto.ServerDto;
@@ -22,21 +23,34 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/servers")
 @RequiredArgsConstructor
+@Tag(name = "Servers", description = "Управление серверами")
 public class ServerController {
 
     private final ServerService serverService;
 
     @PostMapping
+    @Operation(
+        summary = "Создать сервер",
+        description = "Добавляет новый сервер и возвращает его данные."
+    )
     public ResponseEntity<ServerDto> create(@RequestBody @Valid ServerDto dto) {
         return ResponseEntity.ok(serverService.createServer(dto));
     }
 
     @GetMapping("/{id}")
+    @Operation(
+        summary = "Получить сервер",
+        description = "Возвращает данные сервера по его идентификатору."
+    )
     public ResponseEntity<ServerDto> getById(@PathVariable Long id) {
         return ResponseEntity.ok(serverService.getServerById(id));
     }
 
     @PutMapping("/{id}")
+    @Operation(
+        summary = "Обновить сервер",
+        description = "Обновляет параметры сервера по идентификатору."
+    )
     public ResponseEntity<Void> update(@PathVariable Long id,
                                        @RequestBody ServerDto serverDto) {
         serverService.updateServer(id, serverDto);
@@ -44,12 +58,20 @@ public class ServerController {
     }
 
     @DeleteMapping("/{id}")
+    @Operation(
+        summary = "Удалить сервер",
+        description = "Удаляет сервер по идентификатору."
+    )
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         serverService.deleteServer(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping
+    @Operation(
+        summary = "Список серверов",
+        description = "Возвращает список всех серверов."
+    )
     public ResponseEntity<List<ServerDto>> getAll(@RequestParam(required = false) String hostname) {
         return ResponseEntity.ok(serverService.getAllServers());
     }

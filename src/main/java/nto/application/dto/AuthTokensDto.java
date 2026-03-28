@@ -1,7 +1,8 @@
 package nto.application.dto;
 
-public record AuthResponseDto(
+public record AuthTokensDto(
     String accessToken,
+    String refreshToken,
     Long expiresIn
 ) {
 }

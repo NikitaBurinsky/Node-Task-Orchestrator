@@ -1,4 +1,10 @@
 package nto.application.dto;
 
-public record AuthRequestDto(String username, String password) {
+import jakarta.validation.constraints.NotBlank;
+
+public record AuthRequestDto(
+    String username,
+    @NotBlank
+    String password
+) {
 }

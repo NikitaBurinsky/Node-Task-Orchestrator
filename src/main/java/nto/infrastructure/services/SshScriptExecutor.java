@@ -35,9 +35,9 @@ public class SshScriptExecutor implements ScriptExecutor {
     private final JpaTaskRepository taskRepository;
     private final TaskStatusCache statusCache;
     private final ServerRepository serverRepository;
-    // Внедряем наш новый менеджер сессий
+    
     private final SshSessionManager sessionManager;
-    // Счетчики (для демонстрации Race Condition в Лабе 6)
+    
     private final AtomicLong atomicCounter = new AtomicLong(0);
     private long unsafeCounter = 0;
 
@@ -72,7 +72,7 @@ public class SshScriptExecutor implements ScriptExecutor {
             return session.isOpen();
         } catch (Exception e) {
             log.warn("Ping failed for server {}: {}", server.getIpAddress(), e.getMessage());
-            // Если пинг упал, возможно сервер перезагрузился, сбрасываем кэш сессии
+            
             sessionManager.invalidateSession(serverId);
             return false;
         }

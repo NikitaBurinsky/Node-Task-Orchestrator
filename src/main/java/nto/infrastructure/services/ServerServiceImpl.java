@@ -33,11 +33,11 @@ public class ServerServiceImpl implements ServerService {
     private final MappingService mappingService;
     private final JpaUserRepository userRepository;
     private final JpaSshUsernameRepository sshUsernameRepository;
-    private final TaskStatusCache taskStatusCache;
+    private final TaskStatusCache tasksCache;
 
     @Override
     @Transactional(readOnly = true)
-    public List<ServerDto> getAllServers() { // Нужно добавить этот метод в интерфейс
+    public List<ServerDto> getAllServers() { 
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return mappingService.mapListToDto(
             serverRepository.findAllByOwnerUsername(username),
@@ -68,7 +68,7 @@ public class ServerServiceImpl implements ServerService {
             .orElseThrow(
                 () -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
         ensureServerOwned(server, username);
-        taskStatusCache.evictAllByServerId(id);
+        tasksCache.evictAllByServerId(id);
         serverRepository.deleteById(id);
     }
 

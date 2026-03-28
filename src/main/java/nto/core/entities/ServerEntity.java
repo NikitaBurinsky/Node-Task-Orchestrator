@@ -28,7 +28,7 @@ import java.util.Set;
 @Entity
 @Table(name = "servers")
 @Getter
-// Используем Getter/Setter вместо @Data для сущностей со сложными связями (избегаем StackOverflow в toString/hashCode)
+
 @Setter
 @Builder
 @NoArgsConstructor
@@ -53,7 +53,7 @@ public class ServerEntity implements BaseEntity {
 
     private String password;
 
-    // (M:N)
+    
     @Builder.Default
     @ManyToMany
     @JoinTable(
@@ -63,8 +63,8 @@ public class ServerEntity implements BaseEntity {
     )
     private Set<ServerGroupEntity> groups = new HashSet<>();
 
-    // 3. Задачи (1:N)
-    // CascadeType.ALL: Удаление сервера удалит и TaskEntity
+    
+    
     @Builder.Default
     @OneToMany(mappedBy = "server", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TaskEntity> tasks = new ArrayList<>();

@@ -36,6 +36,10 @@ public class TaskController {
     }
 
     @GetMapping("/status")
+    @Operation(
+        summary = "Статус последнего запуска",
+        description = "Возвращает последнюю задачу для пары serverId/scriptId или 404, если не найдено."
+    )
     public ResponseEntity<TaskDto> getTaskStatus(
         @RequestParam Long serverId,
         @RequestParam Long scriptId) {

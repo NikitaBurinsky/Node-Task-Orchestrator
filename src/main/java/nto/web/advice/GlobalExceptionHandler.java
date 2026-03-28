@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import nto.core.utils.exceptions.InvalidRefreshTokenException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -28,13 +29,19 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, "Validation Failed", errors);
     }
 
-    // Обработка общих ошибок
+    
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleAllExceptions(Exception ex) {
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
     }
 
-    // Хелпер для JSON ответа
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidRefreshToken(
+        InvalidRefreshTokenException ex) {
+        return buildResponse(HttpStatus.UNAUTHORIZED, ex.getMessage(), null);
+    }
+
+    
     private ResponseEntity<Map<String, Object>> buildResponse(HttpStatus status, String error,
                                                               Object details) {
         Map<String, Object> response = new HashMap<>();

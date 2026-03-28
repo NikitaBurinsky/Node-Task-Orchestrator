@@ -12,13 +12,13 @@ import org.springframework.util.StopWatch;
 @Slf4j
 public class ExecutionTimeAspect {
 
-    // Advice "Around" оборачивает метод. Аналог `await next()` в Middleware.
+    
     @Around("@annotation(nto.application.annotations.LogExecutionTime)")
     public Object logExecutionTime(ProceedingJoinPoint joinPoint) throws Throwable {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
 
-        // Вызов целевого метода
+        
         Object proceed = joinPoint.proceed();
 
         stopWatch.stop();

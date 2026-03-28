@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authApi } from '../services/api';
+import { authApi, setAccessToken, setAuthFailureHandler } from '../services/api';
 import type { AuthRequestDto } from '../types/api';
 
 interface AuthContextType {
@@ -17,33 +17,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const applyToken = (newToken: string | null) => {
+    setToken(newToken);
+    setAccessToken(newToken);
+  };
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    if (storedToken) {
-      setToken(storedToken);
-    }
-    setLoading(false);
+    setAuthFailureHandler(() => applyToken(null));
+    return () => setAuthFailureHandler(null);
+  }, []);
+
+  useEffect(() => {
+    const initialize = async () => {
+      try {
+        const response = await authApi.refresh();
+        const newToken = response.data.accessToken ?? null;
+        if (newToken) {
+          applyToken(newToken);
+        } else {
+          applyToken(null);
+        }
+      } catch {
+        applyToken(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initialize();
   }, []);
 
   const login = async (credentials: AuthRequestDto) => {
     const response = await authApi.login(credentials);
-    const newToken = response.data.token!;
-    localStorage.setItem('token', newToken);
-    setToken(newToken);
+    const newToken = response.data.accessToken ?? null;
+    applyToken(newToken);
   };
 
-    const register = async (credentials: AuthRequestDto) => {
-        // Убедись, что в authApi добавлен метод register (аналогичный login)
-        const response = await authApi.register(credentials);
-        const newToken = response.data.token!;
-        localStorage.setItem('token', newToken);
-        setToken(newToken);
-    };
+  const register = async (credentials: AuthRequestDto) => {
+    const response = await authApi.register(credentials);
+    const newToken = response.data.accessToken ?? null;
+    applyToken(newToken);
+  };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    setToken(null);
+    authApi.logout().finally(() => applyToken(null));
   };
 
   return (
@@ -54,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         loading,
-          register
+        register,
       }}
     >
       {children}

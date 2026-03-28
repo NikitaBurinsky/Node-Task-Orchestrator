@@ -1,4 +1,4 @@
-// Порт для Сервиса (Input Port)
+
 package nto.application.interfaces.services;
 
 import nto.application.dto.ServerDto;

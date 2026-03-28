@@ -1,11 +1,15 @@
 package nto.application.interfaces.services;
 
 import nto.application.dto.AuthRequestDto;
-import nto.application.dto.AuthResponseDto;
+import nto.application.dto.AuthTokensDto;
 import nto.application.dto.UserDto;
 
 public interface AuthService {
-    AuthResponseDto register(UserDto dto);
+    AuthTokensDto register(UserDto dto);
 
-    AuthResponseDto login(AuthRequestDto dto);
+    AuthTokensDto login(AuthRequestDto dto);
+
+    AuthTokensDto refresh(String refreshToken);
+
+    void logout(String refreshToken, String accessToken);
 }

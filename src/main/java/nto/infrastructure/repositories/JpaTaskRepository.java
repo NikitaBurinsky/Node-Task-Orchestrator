@@ -29,11 +29,7 @@ public interface JpaTaskRepository extends JpaRepository<TaskEntity, Long>, Task
     List<TaskEntity> findLatestTasksByGroupId(@Param("groupId") Long groupId);
 
     boolean existsByServerIdAndStatusIn(Long serverId, Collection<TaskStatus> statuses);
-
-    //
-    // ДЕМОНСТРАЦИЯ ДЛЯ 3 ЛАБЫ
-
-    // 1. JPQL: Фильтрация по вложенным сущностям (Server -> Groups -> Owner)
+    
     @Query("SELECT DISTINCT t FROM TaskEntity t " +
         "JOIN t.server s JOIN s.groups g " +
         "WHERE g.owner.username = :username " +
@@ -43,11 +39,7 @@ public interface JpaTaskRepository extends JpaRepository<TaskEntity, Long>, Task
         @Param("status") TaskStatus status,
         Pageable pageable
     );
-
-    // Native SQL
-    // 1. Прописываем явные JOIN через внешние ключи
-    // 2. Добавляем countQuery для корректной работы Page<T> (аналог .Count() в LINQ перед .Skip().Take())
-    // 3. Используем CAST(... AS text), чтобы Postgres не ругался на неизвестный тип при передаче null
+    
     @Query(
         value = "SELECT DISTINCT t.* FROM tasks t " +
             "JOIN servers s ON t.server_id = s.id " +

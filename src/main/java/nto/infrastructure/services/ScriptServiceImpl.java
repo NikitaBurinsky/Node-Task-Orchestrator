@@ -61,7 +61,7 @@ public class ScriptServiceImpl implements ScriptService {
     @Override
     @Transactional
     public void deleteScript(Long id) {
-        if (!scriptRepository.findById(id).isEmpty()) {
+        if (scriptRepository.findById(id).isEmpty()) {
             throw new EntityNotFoundException(
                 ErrorMessages.SCRIPT_NOT_FOUND.getMessage() + " with id: " + id);
         }

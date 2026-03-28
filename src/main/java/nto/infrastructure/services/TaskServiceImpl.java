@@ -68,7 +68,7 @@ public class TaskServiceImpl implements TaskService {
     @Transactional(readOnly = true)
     public Page<TaskDto> getTasksWithFilters(String username, TaskStatus status,
                                              Pageable pageable) {
-        // Используем JPQL версию
+        
         Page<TaskEntity> tasks = taskRepository.findTasksByUserAndStatusJPQL(username, status,
             pageable);
         return tasks.map(entity -> mappingService.mapToDto(entity, TaskDto.class));
@@ -78,17 +78,17 @@ public class TaskServiceImpl implements TaskService {
     public TaskDto getLastStatus(Long serverId, Long scriptId) {
         String username = getCurrentUsername();
 
-        // Проверяем права доступа (Fail-fast)
+        
         getServerIfOwned(serverId, username);
         getScriptIfAvailable(scriptId, username);
 
-        // Cache
+        
         TaskEntity cached = tasksCache.get(serverId, scriptId);
         if (cached != null) {
             return mappingService.mapToDto(cached, TaskDto.class);
         }
 
-        // Cache Miss -> DB Hit
+        
         return taskRepository.findFirstByServerIdAndScriptIdOrderByCreatedAtDesc(serverId, scriptId)
             .map(entity -> mappingService.mapToDto(entity, TaskDto.class))
             .orElse(null);
@@ -100,27 +100,27 @@ public class TaskServiceImpl implements TaskService {
     public List<TaskDto> createTasksBulk(BulkTaskRequestDto dto) {
         String username = getCurrentUsername();
 
-        // 1. Валидация скрипта
+        
         ScriptEntity script = getScriptIfAvailable(dto.scriptId(), username);
 
-        // 2. Пакетная загрузка серверов
+        
         List<ServerEntity> foundServers = serverRepository.findAllById(dto.serverIds());
 
-        // 3. Валидация целостности списка
+        
         validateServersExistence(foundServers, dto.serverIds());
 
-        // 4. Валидация прав
+        
         if (!"mock".equalsIgnoreCase(executorType)) {
             foundServers.forEach(server -> validateServerOwnership(server, username));
         }
-        // 5. Создание и сохранение задач
+        
         List<TaskEntity> tasksToSave = foundServers.stream()
             .map(server -> buildTask(script, server))
             .collect(Collectors.toList());
 
         List<TaskEntity> savedTasks = taskRepository.saveAll(tasksToSave);
 
-        // 6. Сайд-эффекты (Кэш + Async Executor)
+        
         savedTasks.forEach(task -> {
             tasksCache.put(task);
             scriptExecutor.executeAsync(task.getId());
@@ -137,7 +137,7 @@ public class TaskServiceImpl implements TaskService {
         TaskEntity task = taskRepository.findById(id)
             .orElseThrow(() -> new EntityNotFoundException("Task not found: " + id));
 
-        // Security Check
+        
         validateServerOwnership(task.getServer(), username);
         tasksCache.put(task);
         return mappingService.mapToDto(task, TaskDto.class);
@@ -148,13 +148,13 @@ public class TaskServiceImpl implements TaskService {
     public List<TaskDto> getAllTasks() {
         String username = getCurrentUsername();
 
-        // Security Check: Возвращаем только задачи с серверов текущего пользователя
+        
         List<TaskEntity> tasks = taskRepository.findAllByServerGroupOwnerUsername(username);
 
         return mappingService.mapListToDto(tasks, TaskDto.class);
     }
 
-    // Private Helper Methods (DRY & Security)
+    
 
     private String getCurrentUsername() {
         return SecurityContextHolder.getContext().getAuthentication().getName();

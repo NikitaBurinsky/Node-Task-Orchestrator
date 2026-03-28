@@ -12,26 +12,87 @@ import type {
   PingResultDto,
 } from '../types/api';
 
+const baseURL = 'https://api.nto.formatis.online/api';
+
 const api = axios.create({
-  baseURL: 'https://formatis.online/api',
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
 });
+
+const refreshApi = axios.create({
+  baseURL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true,
+});
+
+let accessToken: string | null = null;
+let authFailureHandler: (() => void) | null = null;
+
+export const setAccessToken = (token: string | null) => {
+  accessToken = token;
+};
+
+export const setAuthFailureHandler = (handler: (() => void) | null) => {
+  authFailureHandler = handler;
+};
 
 // setupMockAdapter(api);
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (accessToken) {
+    config.headers = config.headers ?? {};
+    config.headers.Authorization = `Bearer ${accessToken}`;
   }
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    const status = error.response?.status;
+
+    const requestUrl = originalRequest?.url ?? '';
+    const isAuthRequest =
+      requestUrl.includes('/auth/login') ||
+      requestUrl.includes('/auth/register') ||
+      requestUrl.includes('/auth/refresh') ||
+      requestUrl.includes('/auth/logout');
+
+    if (status === 401 && originalRequest && !isAuthRequest && !(originalRequest as any)._retry) {
+      (originalRequest as any)._retry = true;
+      try {
+        const response = await refreshApi.post<AuthResponseDto>('/auth/refresh');
+        const newToken = response.data.accessToken;
+        if (newToken) {
+          setAccessToken(newToken);
+          originalRequest.headers = originalRequest.headers ?? {};
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return api(originalRequest);
+        }
+      } catch (refreshError) {
+        setAccessToken(null);
+        if (authFailureHandler) {
+          authFailureHandler();
+        }
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 export const authApi = {
   login: (data: AuthRequestDto) => api.post<AuthResponseDto>('/auth/login', data),
   register: (data: AuthRequestDto) => api.post<AuthResponseDto>('/auth/register', data),
+  refresh: () => refreshApi.post<AuthResponseDto>('/auth/refresh'),
+  logout: () => api.post<void>('/auth/logout'),
 };
 
 export const serversApi = {

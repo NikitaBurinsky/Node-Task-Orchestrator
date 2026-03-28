@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @OpenAPIDefinition(
     info = @Info(title = "NTO API", version = "v1"),
-    security = @SecurityRequirement(name = "bearerAuth") // Применяем security глобально ко всем методам
+    security = @SecurityRequirement(name = "bearerAuth") 
 )
 @SecurityScheme(
     name = "bearerAuth",

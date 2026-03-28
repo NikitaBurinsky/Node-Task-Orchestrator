@@ -15,12 +15,12 @@ public interface ServerGroupService {
 
     void deleteGroup(Long id);
 
-    // Управление составом группы
+    
     void addServerToGroup(Long groupId, Long serverId);
 
     void removeServerFromGroup(Long groupId, Long serverId);
 
-    // Групповые операции
+    
     Map<Long, Boolean> pingGroup(Long groupId);
 
     List<TaskDto> executeScriptOnGroup(Long groupId, Long scriptId);

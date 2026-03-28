@@ -10,10 +10,10 @@ import java.util.Collections;
 import java.util.stream.Collectors;
 
 @Component
-@RequiredArgsConstructor // Добавляем lombok конструктор для инъекции
+@RequiredArgsConstructor 
 public class ServerGroupProfile implements MapperProfile<ServerGroupEntity, ServerGroupDto> {
 
-    private final ServerProfile serverProfile; // Инжектим маппер серверов
+    private final ServerProfile serverProfile; 
 
     @Override
     public Class<ServerGroupEntity> getEntityClass() {
@@ -30,7 +30,7 @@ public class ServerGroupProfile implements MapperProfile<ServerGroupEntity, Serv
         return new ServerGroupDto(
             entity.getId(),
             entity.getName(),
-            // Преобразуем список Entity серверов в список DTO
+            
             entity.getServers() != null
                 ? entity.getServers().stream()
                 .map(serverProfile::mapToDto)

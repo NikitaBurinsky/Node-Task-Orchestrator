@@ -15,11 +15,11 @@ public class MappingServiceImpl implements MappingService {
 
     private final Map<String, MapperProfile<?, ?>> profiles;
 
-    // Constructor Injection: Spring сам найдет все реализации MapperProfile и передаст их сюда списком
+    
     public MappingServiceImpl(List<MapperProfile<?, ?>> profileList) {
         this.profiles = profileList.stream()
             .collect(Collectors.toMap(
-                // Ключ: "EntityClassName_DtoClassName"
+                
                 p -> buildKey(p.getEntityClass(), p.getDtoClass()),
                 p -> p
             ));

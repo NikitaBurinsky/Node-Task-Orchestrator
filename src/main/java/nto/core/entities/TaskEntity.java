@@ -17,9 +17,7 @@ import lombok.NoArgsConstructor;
 import nto.core.converters.TaskStatusConverter;
 import nto.core.entities.base.BaseEntity;
 import nto.core.enums.TaskStatus;
-import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -56,8 +54,8 @@ public class TaskEntity implements BaseEntity {
     @JoinColumn(name = "script_id", nullable = false)
     private ScriptEntity script;
 
-    // --- Новое поле ---
-    // Ссылка на группу, если задача была запущена массово
+    
+    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "source_group_id")
     private ServerGroupEntity sourceGroup;

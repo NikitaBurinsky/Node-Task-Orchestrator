@@ -35,18 +35,18 @@ public class ScriptEntity implements BaseEntity {
     @Column(nullable = false)
     private String name;
 
-    @Column(columnDefinition = "TEXT") // Для больших скриптов
+    @Column(columnDefinition = "TEXT") 
     private String content;
 
     @Column(nullable = false)
     @Builder.Default
-    private Boolean isPublic = false; // По умолчанию скрипт приватный
+    private Boolean isPublic = false; 
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private UserEntity owner;
 
-    // Один скрипт может быть запущен много раз (Tasks)
+    
     @Builder.Default
     @OneToMany(mappedBy = "script", cascade = CascadeType.ALL)
     private List<TaskEntity> tasks = new ArrayList<>();

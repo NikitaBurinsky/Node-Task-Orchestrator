@@ -32,14 +32,18 @@ public class UserEntity implements BaseEntity {
     @Column(nullable = false, unique = true)
     private String username;
 
-    private String password; // Будет хранить хеш
+    private String password; 
 
-    // Связь 1:N (User -> Scripts)
+    @Builder.Default
+    @Column(nullable = false)
+    private Long tokenVersion = 0L;
+
+    
     @Builder.Default
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ScriptEntity> scripts = new ArrayList<>();
 
-    // SSH usernames owned by the user
+    
     @Builder.Default
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SshUsernameEntity> sshUsernames = new ArrayList<>();

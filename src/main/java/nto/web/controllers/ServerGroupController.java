@@ -48,6 +48,10 @@ public class ServerGroupController {
     }
 
     @GetMapping("/{id}")
+    @Operation(
+        summary = "Получить группу",
+        description = "Возвращает данные группы серверов по идентификатору."
+    )
     public ResponseEntity<ServerGroupDto> getById(@PathVariable Long id) {
         return ResponseEntity.ok(groupService.getGroupById(id));
     }
@@ -59,7 +63,7 @@ public class ServerGroupController {
         return ResponseEntity.noContent().build();
     }
 
-    // --- Управление составом ---
+    
 
     @PostMapping("/{groupId}/servers/{serverId}")
     @Operation(summary = "Добавить сервер", description = "Добавляет существующий сервер в группу")
@@ -76,7 +80,7 @@ public class ServerGroupController {
         return ResponseEntity.ok().build();
     }
 
-    // --- Групповые операции ---
+    
 
     @GetMapping("/{id}/ping")
     @Operation(summary = "Пинг группы", description = "Пингует все серверы в группе")

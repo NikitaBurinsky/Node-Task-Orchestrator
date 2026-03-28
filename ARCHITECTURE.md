@@ -234,7 +234,7 @@ Persistence:
 Важно:
 
 * в Docker Compose backend запускается с `NTO\\\\\\\_EXECUTOR\\\\\\\_TYPE=ssh`.
-* фронтенд ориентирован на `/api` (прод-домен `https://formatis.online/api`).
+* фронтенд ориентирован на `/api` (прод-домен `https://api.nto.formatis.online/api`).
 
 ## 9\. Развертывание
 
@@ -247,7 +247,7 @@ Persistence:
 Поток трафика:
 
 * клиент -> `nginx:443` -> `nto-backend:8080`.
-
+~~~~
 ## 10\. Нефункциональные аспекты
 
 * Асинхронность выполнения задач через thread pool.
