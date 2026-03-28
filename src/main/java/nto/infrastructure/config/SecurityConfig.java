@@ -25,6 +25,7 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
+@CrossOrigin(origins = "https://node-task-orchestrator.vercel.app")
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
