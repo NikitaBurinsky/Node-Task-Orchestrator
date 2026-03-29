@@ -8,7 +8,6 @@ public record ScriptDto(
     String name,
     @NotEmpty
     String content,
-    @NotEmpty
     String ownerName,
     Boolean isPublic
 ) implements BaseDto {
