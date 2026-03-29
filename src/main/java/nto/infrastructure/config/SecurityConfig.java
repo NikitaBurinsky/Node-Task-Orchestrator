@@ -25,13 +25,12 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
-@CrossOrigin(origins = "https://node-task-orchestrator.vercel.app")
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
 
-    @Value("${nto.app.cors.allowedOrigins:http://localhost:5173,https://api.nto.formatis.online}")
+    @Value("${nto.app.cors.allowedOrigins:http://localhost:5173,https://api.nto.formatis.online,https://node-task-orchestrator.vercel.app}")
     private String corsAllowedOrigins;
 
     @Bean
