@@ -7,6 +7,7 @@ export function Servers() {
   const [servers, setServers] = useState<ServerDto[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [pingStatus, setPingStatus] = useState<Record<number, 'checking' | 'online' | 'offline'>>({});
+  const [pingErrors, setPingErrors] = useState<Record<number, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<ServerDto>({
     hostname: '',
@@ -49,6 +50,20 @@ export function Servers() {
     });
   };
 
+  const clearPingError = (serverId: number) => {
+    setPingErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors[serverId];
+      return newErrors;
+    });
+  };
+
+  const schedulePingErrorClear = (serverId: number) => {
+    setTimeout(() => {
+      clearPingError(serverId);
+    }, 3000);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -77,6 +92,7 @@ export function Servers() {
     try {
       await serversApi.delete(serverId);
       removePingStatus(serverId);
+      clearPingError(serverId);
       setError(null);
       await fetchServers();
     } catch (error) {
@@ -87,6 +103,7 @@ export function Servers() {
 
   const handlePing = async (serverId: number) => {
     setPingStatus((prev) => ({ ...prev, [serverId]: 'checking' }));
+    clearPingError(serverId);
     try {
       const response = await serversApi.ping(serverId);
       setPingStatus((prev) => ({
@@ -98,6 +115,8 @@ export function Servers() {
     } catch (error) {
       console.error('Failed to ping server:', error);
       removePingStatus(serverId);
+      setPingErrors((prev) => ({ ...prev, [serverId]: true }));
+      schedulePingErrorClear(serverId);
       setError('Failed to ping server.');
     }
   };
@@ -215,10 +234,15 @@ export function Servers() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {servers.map((server) => {
           const status = pingStatus[server.id!];
+          const hasPingError = Boolean(pingErrors[server.id!]);
           return (
             <div
               key={server.id}
-              className="bg-gray-900 border border-green-900 rounded-lg p-6 hover:border-green-700 transition-colors"
+              className={`bg-gray-900 border rounded-lg p-6 transition-colors ${
+                hasPingError
+                  ? 'border-red-700 bg-red-950/30 hover:border-red-600'
+                  : 'border-green-900 hover:border-green-700'
+              }`}
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-3">
@@ -264,7 +288,11 @@ export function Servers() {
               <button
                 onClick={() => handlePing(server.id!)}
                 disabled={status === 'checking'}
-                className="w-full flex items-center justify-center space-x-2 bg-green-900 text-green-300 px-3 py-2 rounded font-mono text-sm hover:bg-green-800 transition-colors disabled:opacity-50"
+                className={`w-full flex items-center justify-center space-x-2 px-3 py-2 rounded font-mono text-sm transition-colors disabled:opacity-50 ${
+                  hasPingError
+                    ? 'bg-red-900 text-red-200 hover:bg-red-800'
+                    : 'bg-green-900 text-green-300 hover:bg-green-800'
+                }`}
               >
                 <Activity className="w-4 h-4" />
                 <span>{status === 'checking' ? 'Pinging...' : 'Ping'}</span>
