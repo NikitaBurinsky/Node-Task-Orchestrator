@@ -83,8 +83,8 @@ public class ServerGroupServiceImpl implements ServerGroupService {
         if (ServerGroupDefaults.DEFAULT_GROUP_NAME.equals(group.getName())) {
             throw new ResourceConflictException("Default group cannot be deleted");
         }
-        
-        
+
+
         groupRepository.delete(group);
     }
 
@@ -94,11 +94,11 @@ public class ServerGroupServiceImpl implements ServerGroupService {
         ServerGroupEntity group = getGroupIfOwned(groupId);
         ServerEntity server = getServerIfOwned(serverId);
 
-        
+
         server.getGroups().add(group);
         group.getServers().add(server);
 
-        serverRepository.save(server); 
+        serverRepository.save(server);
     }
 
     @Override
@@ -121,7 +121,7 @@ public class ServerGroupServiceImpl implements ServerGroupService {
         ServerGroupEntity group = getGroupIfOwned(groupId);
         Map<Long, Boolean> results = new HashMap<>();
 
-        
+
         for (ServerEntity server : group.getServers()) {
             boolean alive = scriptExecutor.ping(server.getId());
             results.put(server.getId(), alive);
@@ -146,7 +146,7 @@ public class ServerGroupServiceImpl implements ServerGroupService {
             throw new ResourceConflictException("Group is empty");
         }
 
-        
+
         List<TaskEntity> tasks = group.getServers().stream()
             .map(server -> TaskEntity.builder()
                 .server(server)
@@ -169,7 +169,6 @@ public class ServerGroupServiceImpl implements ServerGroupService {
         return mappingService.mapListToDto(savedTasks, TaskDto.class);
     }
 
-    
 
     private String getCurrentUsername() {
         return SecurityContextHolder.getContext().getAuthentication().getName();
@@ -201,10 +200,10 @@ public class ServerGroupServiceImpl implements ServerGroupService {
     @Override
     @Transactional(readOnly = true)
     public List<TaskDto> getLastGroupExecutionStatus(Long groupId) {
-        
+
         getGroupIfOwned(groupId);
 
-        
+
         List<TaskEntity> tasks = taskRepository.findLatestTasksByGroupId(groupId);
 
         return mappingService.mapListToDto(tasks, TaskDto.class);

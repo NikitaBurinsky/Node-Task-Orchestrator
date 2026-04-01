@@ -35,7 +35,7 @@ public class TaskProfile implements MapperProfile<TaskEntity, TaskDto> {
             entity.getOutput(),
             entity.getServer().getId(),
             entity.getScript().getId(),
-            
+
             entity.getSourceGroup() != null ? entity.getSourceGroup().getId() : null,
             entity.getStartedAt(),
             entity.getFinishedAt()
@@ -49,7 +49,7 @@ public class TaskProfile implements MapperProfile<TaskEntity, TaskDto> {
             .output(dto.output())
             .build();
 
-        
+
         resolveReferences(dto, entity);
 
         return entity;

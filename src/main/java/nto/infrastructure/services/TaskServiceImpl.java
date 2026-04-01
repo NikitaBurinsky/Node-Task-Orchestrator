@@ -69,7 +69,7 @@ public class TaskServiceImpl implements TaskService {
     @Transactional(readOnly = true)
     public Page<TaskDto> getTasksWithFilters(String username, TaskStatus status,
                                              Pageable pageable) {
-        
+
         Page<TaskEntity> tasks = taskRepository.findTasksByUserAndStatusJPQL(username, status,
             pageable);
         return tasks.map(entity -> mappingService.mapToDto(entity, TaskDto.class));
@@ -79,17 +79,17 @@ public class TaskServiceImpl implements TaskService {
     public TaskDto getLastStatus(Long serverId, Long scriptId) {
         String username = getCurrentUsername();
 
-        
+
         getServerIfOwned(serverId, username);
         getScriptIfAvailable(scriptId, username);
 
-        
+
         TaskEntity cached = tasksCache.get(serverId, scriptId);
         if (cached != null) {
             return mappingService.mapToDto(cached, TaskDto.class);
         }
 
-        
+
         return taskRepository.findFirstByServerIdAndScriptIdOrderByCreatedAtDesc(serverId, scriptId)
             .map(entity -> mappingService.mapToDto(entity, TaskDto.class))
             .orElse(null);
@@ -101,27 +101,27 @@ public class TaskServiceImpl implements TaskService {
     public List<TaskDto> createTasksBulk(BulkTaskRequestDto dto) {
         String username = getCurrentUsername();
 
-        
+
         ScriptEntity script = getScriptIfAvailable(dto.scriptId(), username);
 
-        
+
         List<ServerEntity> foundServers = serverRepository.findAllById(dto.serverIds());
 
-        
+
         validateServersExistence(foundServers, dto.serverIds());
 
-        
+
         if (!"mock".equalsIgnoreCase(executorType)) {
             foundServers.forEach(server -> validateServerOwnership(server, username));
         }
-        
+
         List<TaskEntity> tasksToSave = foundServers.stream()
             .map(server -> buildTask(script, server))
             .collect(Collectors.toList());
 
         List<TaskEntity> savedTasks = taskRepository.saveAll(tasksToSave);
 
-        
+
         savedTasks.forEach(task -> {
             tasksCache.put(task);
             scriptExecutor.executeAsync(task.getId());
@@ -138,7 +138,7 @@ public class TaskServiceImpl implements TaskService {
         TaskEntity task = taskRepository.findById(id)
             .orElseThrow(() -> new EntityNotFoundException("Task not found: " + id));
 
-        
+
         validateServerOwnership(task.getServer(), username);
         tasksCache.put(task);
         return mappingService.mapToDto(task, TaskDto.class);
@@ -149,13 +149,12 @@ public class TaskServiceImpl implements TaskService {
     public List<TaskDto> getAllTasks() {
         String username = getCurrentUsername();
 
-        
+
         List<TaskEntity> tasks = taskRepository.findAllByServerGroupOwnerUsername(username);
 
         return mappingService.mapListToDto(tasks, TaskDto.class);
     }
 
-    
 
     private String getCurrentUsername() {
         return SecurityContextHolder.getContext().getAuthentication().getName();

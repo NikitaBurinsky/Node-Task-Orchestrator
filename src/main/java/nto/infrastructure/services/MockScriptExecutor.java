@@ -31,9 +31,9 @@ public class MockScriptExecutor implements ScriptExecutor {
     @PersistenceContext
     private final EntityManager entityManager;
 
-    
+
     private final AtomicLong atomicCounter = new AtomicLong(0);
-    private long unsafeCounter = 0; 
+    private long unsafeCounter = 0;
 
     @Override
     public boolean ping(Long serverId) {
@@ -46,7 +46,7 @@ public class MockScriptExecutor implements ScriptExecutor {
     }
 
     @Override
-    @Async("taskExecutor") 
+    @Async("taskExecutor")
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void executeAsync(Long taskId) {
         log.info("Starting execution for Task ID: {}", taskId);

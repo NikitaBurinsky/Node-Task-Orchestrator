@@ -9,8 +9,7 @@ public enum ErrorMessages {
     ACCESS_DENIED("Access Denied"),
     INVALID_INPUT("Bad credentials"),
     DATABASE_ERROR("Database error"),
-    VALID_ERROR("Validation error")
-    ;
+    VALID_ERROR("Validation error");
 
     private final String message;
 

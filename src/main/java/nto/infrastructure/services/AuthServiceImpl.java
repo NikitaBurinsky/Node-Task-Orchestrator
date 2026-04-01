@@ -43,14 +43,11 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final JpaServerGroupRepository serverGroupRepository;
     private final JpaRefreshTokenRepository refreshTokenRepository;
-
+    private final SecureRandom secureRandom = new SecureRandom();
     @Value("${nto.app.jwtRefreshExpirationMs:2592000000}")
     private long jwtRefreshExpirationMs;
-
     @Value("${nto.app.jwtSecret:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}")
     private String jwtSecret;
-
-    private final SecureRandom secureRandom = new SecureRandom();
 
     @Override
     @Transactional

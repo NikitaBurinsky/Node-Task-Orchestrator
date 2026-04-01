@@ -53,7 +53,7 @@ public class ServerEntity implements BaseEntity {
 
     private String password;
 
-    
+
     @Builder.Default
     @ManyToMany
     @JoinTable(
@@ -63,8 +63,7 @@ public class ServerEntity implements BaseEntity {
     )
     private Set<ServerGroupEntity> groups = new HashSet<>();
 
-    
-    
+
     @Builder.Default
     @OneToMany(mappedBy = "server", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TaskEntity> tasks = new ArrayList<>();

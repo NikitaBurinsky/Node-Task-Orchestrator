@@ -52,10 +52,10 @@ public class SecurityConfig {
                 return corsConfiguration;
             }))
             .authorizeHttpRequests(auth -> auth
-                
+
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                
+
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session

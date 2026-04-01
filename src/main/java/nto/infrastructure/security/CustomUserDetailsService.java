@@ -27,7 +27,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         return new User(
             user.getUsername(),
             user.getPassword(),
-            Collections.emptyList() 
+            Collections.emptyList()
         );
     }
 }

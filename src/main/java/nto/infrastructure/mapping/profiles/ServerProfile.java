@@ -5,7 +5,7 @@ import nto.application.interfaces.mapping.MapperProfile;
 import nto.core.entities.ServerEntity;
 import org.springframework.stereotype.Component;
 
-@Component 
+@Component
 public class ServerProfile implements MapperProfile<ServerEntity, ServerDto> {
 
     @Override

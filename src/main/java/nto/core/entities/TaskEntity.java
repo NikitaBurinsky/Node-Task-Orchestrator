@@ -54,8 +54,7 @@ public class TaskEntity implements BaseEntity {
     @JoinColumn(name = "script_id", nullable = false)
     private ScriptEntity script;
 
-    
-    
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "source_group_id")
     private ServerGroupEntity sourceGroup;

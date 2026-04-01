@@ -63,7 +63,6 @@ public class ServerGroupController {
         return ResponseEntity.noContent().build();
     }
 
-    
 
     @PostMapping("/{groupId}/servers/{serverId}")
     @Operation(summary = "Добавить сервер", description = "Добавляет существующий сервер в группу")
@@ -80,7 +79,6 @@ public class ServerGroupController {
         return ResponseEntity.ok().build();
     }
 
-    
 
     @GetMapping("/{id}/ping")
     @Operation(summary = "Пинг группы", description = "Пингует все серверы в группе")

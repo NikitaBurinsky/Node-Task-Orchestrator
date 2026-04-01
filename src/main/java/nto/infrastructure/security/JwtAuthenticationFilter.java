@@ -38,7 +38,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         jwt = authHeader.substring(7);
-        
+
         try {
             if (!jwtUtils.isAccessToken(jwt)) {
                 filterChain.doFilter(request, response);
@@ -50,7 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
             username = jwtUtils.extractUsername(jwt);
         } catch (Exception e) {
-            
+
             filterChain.doFilter(request, response);
             return;
         }

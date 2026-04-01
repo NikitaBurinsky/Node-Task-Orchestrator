@@ -35,18 +35,18 @@ public class ScriptEntity implements BaseEntity {
     @Column(nullable = false)
     private String name;
 
-    @Column(columnDefinition = "TEXT") 
+    @Column(columnDefinition = "TEXT")
     private String content;
 
     @Column(nullable = false)
     @Builder.Default
-    private Boolean isPublic = false; 
+    private Boolean isPublic = false;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private UserEntity owner;
 
-    
+
     @Builder.Default
     @OneToMany(mappedBy = "script", cascade = CascadeType.ALL)
     private List<TaskEntity> tasks = new ArrayList<>();

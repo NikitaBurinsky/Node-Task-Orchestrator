@@ -15,11 +15,11 @@ public class MappingServiceImpl implements MappingService {
 
     private final Map<String, MapperProfile<?, ?>> profiles;
 
-    
+
     public MappingServiceImpl(List<MapperProfile<?, ?>> profileList) {
         this.profiles = profileList.stream()
             .collect(Collectors.toMap(
-                
+
                 p -> buildKey(p.getEntityClass(), p.getDtoClass()),
                 p -> p
             ));

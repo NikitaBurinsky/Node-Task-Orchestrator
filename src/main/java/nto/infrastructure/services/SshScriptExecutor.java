@@ -35,9 +35,9 @@ public class SshScriptExecutor implements ScriptExecutor {
     private final JpaTaskRepository taskRepository;
     private final TaskStatusCache statusCache;
     private final ServerRepository serverRepository;
-    
+
     private final SshSessionManager sessionManager;
-    
+
     private final AtomicLong atomicCounter = new AtomicLong(0);
     private long unsafeCounter = 0;
 
@@ -72,7 +72,7 @@ public class SshScriptExecutor implements ScriptExecutor {
             return session.isOpen();
         } catch (Exception e) {
             log.warn("Ping failed for server {}: {}", server.getIpAddress(), e.getMessage());
-            
+
             sessionManager.invalidateSession(serverId);
             return false;
         }

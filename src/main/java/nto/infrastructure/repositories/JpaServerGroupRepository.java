@@ -13,7 +13,7 @@ import java.util.Optional;
 public interface JpaServerGroupRepository extends JpaRepository<ServerGroupEntity, Long>,
     ServerGroupRepository {
 
-    
+
     @EntityGraph(attributePaths = {"servers", "servers.sshUsername", "owner"})
     Optional<ServerGroupEntity> findById(Long id);
 

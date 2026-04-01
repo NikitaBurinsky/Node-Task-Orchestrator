@@ -29,7 +29,7 @@ public interface JpaTaskRepository extends JpaRepository<TaskEntity, Long>, Task
     List<TaskEntity> findLatestTasksByGroupId(@Param("groupId") Long groupId);
 
     boolean existsByServerIdAndStatusIn(Long serverId, Collection<TaskStatus> statuses);
-    
+
     @Query("SELECT DISTINCT t FROM TaskEntity t " +
         "JOIN t.server s JOIN s.groups g " +
         "WHERE g.owner.username = :username " +
@@ -39,7 +39,7 @@ public interface JpaTaskRepository extends JpaRepository<TaskEntity, Long>, Task
         @Param("status") TaskStatus status,
         Pageable pageable
     );
-    
+
     @Query(
         value = "SELECT DISTINCT t.* FROM tasks t " +
             "JOIN servers s ON t.server_id = s.id " +

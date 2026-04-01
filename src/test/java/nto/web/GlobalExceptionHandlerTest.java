@@ -3,6 +3,7 @@ package nto.web;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import nto.core.utils.ErrorMessages;
 import nto.core.utils.exceptions.BadRequestException;
 import nto.core.utils.exceptions.InvalidRefreshTokenException;
 import nto.core.utils.exceptions.ResourceConflictException;

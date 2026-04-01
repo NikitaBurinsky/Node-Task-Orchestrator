@@ -38,7 +38,7 @@ public class ServerServiceImpl implements ServerService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ServerDto> getAllServers() { 
+    public List<ServerDto> getAllServers() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return mappingService.mapListToDto(
             serverRepository.findAllByOwnerUsername(username),
@@ -56,7 +56,8 @@ public class ServerServiceImpl implements ServerService {
         ensureServerOwned(entity, username);
         mappingService.mapToEntity(serverDto, entity);
         if (serverDto.username() != null) {
-            entity.setSshUsername(resolveSshUsername(getCurrentUser(username), serverDto.username()));
+            entity.setSshUsername(
+                resolveSshUsername(getCurrentUser(username), serverDto.username()));
         }
         serverRepository.save(entity);
     }
@@ -130,7 +131,8 @@ public class ServerServiceImpl implements ServerService {
 
     private UserEntity getCurrentUser(String username) {
         return userRepository.findByUsername(username)
-            .orElseThrow(() -> new EntityNotFoundException(ErrorMessages.USER_NOT_FOUND.getMessage()));
+            .orElseThrow(
+                () -> new EntityNotFoundException(ErrorMessages.USER_NOT_FOUND.getMessage()));
     }
 
     private ServerGroupEntity getOrCreateDefaultGroup(UserEntity user) {

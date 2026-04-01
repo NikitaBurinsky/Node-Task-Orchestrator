@@ -1,4 +1,5 @@
 package nto.application.dto;
+
 import jakarta.validation.constraints.NotEmpty;
 import nto.application.dto.base.BaseDto;
 

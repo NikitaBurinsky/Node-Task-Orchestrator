@@ -4,12 +4,17 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import nto.core.utils.ErrorMessages;
+import nto.core.utils.exceptions.BadRequestException;
+import nto.core.utils.exceptions.DuplicateUsernameException;
+import nto.core.utils.exceptions.InvalidRefreshTokenException;
+import nto.core.utils.exceptions.ResourceConflictException;
+import nto.core.utils.exceptions.ServerBusyException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -23,11 +28,6 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import nto.core.utils.exceptions.BadRequestException;
-import nto.core.utils.exceptions.DuplicateUsernameException;
-import nto.core.utils.exceptions.InvalidRefreshTokenException;
-import nto.core.utils.exceptions.ResourceConflictException;
-import nto.core.utils.exceptions.ServerBusyException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -75,7 +75,8 @@ public class GlobalExceptionHandler {
         for (ConstraintViolation<?> violation : ex.getConstraintViolations()) {
             errors.put(violation.getPropertyPath().toString(), violation.getMessage());
         }
-        return buildResponse(HttpStatus.BAD_REQUEST, ErrorMessages.VALID_ERROR.getMessage(), errors);
+        return buildResponse(HttpStatus.BAD_REQUEST, ErrorMessages.VALID_ERROR.getMessage(),
+            errors);
     }
 
     @ExceptionHandler({DuplicateUsernameException.class, ResourceConflictException.class,

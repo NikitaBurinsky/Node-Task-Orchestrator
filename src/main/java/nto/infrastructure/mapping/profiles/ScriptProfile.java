@@ -26,7 +26,7 @@ public class ScriptProfile implements MapperProfile<ScriptEntity, ScriptDto> {
             entity.getId(),
             entity.getName(),
             entity.getContent(),
-            
+
             entity.getOwner() != null ? entity.getOwner().getUsername() : null,
             entity.getIsPublic()
         );
@@ -34,8 +34,8 @@ public class ScriptProfile implements MapperProfile<ScriptEntity, ScriptDto> {
 
     @Override
     public ScriptEntity mapToEntity(ScriptDto dto) {
-        
-        
+
+
         return ScriptEntity.builder()
             .name(dto.name())
             .content(dto.content())
@@ -50,6 +50,6 @@ public class ScriptProfile implements MapperProfile<ScriptEntity, ScriptDto> {
         if (dto.isPublic() != null) {
             entity.setIsPublic(dto.isPublic());
         }
-        
+
     }
 }
