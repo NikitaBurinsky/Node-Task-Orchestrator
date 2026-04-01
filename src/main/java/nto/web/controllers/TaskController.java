@@ -2,6 +2,7 @@ package nto.web.controllers;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import nto.application.dto.BulkTaskRequestDto;
@@ -47,7 +48,8 @@ public class TaskController {
         TaskDto task = taskService.getLastStatus(serverId, scriptId);
 
         if (task == null) {
-            return ResponseEntity.notFound().build();
+            throw new EntityNotFoundException(
+                "Task not found for serverId=" + serverId + ", scriptId=" + scriptId);
         }
 
         return ResponseEntity.ok(task);

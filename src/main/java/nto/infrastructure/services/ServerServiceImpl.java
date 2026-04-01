@@ -12,6 +12,7 @@ import nto.core.entities.SshUsernameEntity;
 import nto.core.entities.UserEntity;
 import nto.core.utils.ErrorMessages;
 import nto.core.utils.ServerGroupDefaults;
+import nto.core.utils.exceptions.BadRequestException;
 import nto.infrastructure.cache.TaskStatusCache;
 import nto.infrastructure.repositories.JpaServerGroupRepository;
 import nto.infrastructure.repositories.JpaServerRepository;
@@ -155,7 +156,7 @@ public class ServerServiceImpl implements ServerService {
                                                  String rawUsername) {
         String username = rawUsername == null ? null : rawUsername.trim();
         if (username == null || username.isBlank()) {
-            throw new IllegalArgumentException("SSH username is required");
+            throw new BadRequestException("SSH username is required");
         }
         return sshUsernameRepository.findByOwnerAndUsername(owner, username)
             .orElseGet(() -> sshUsernameRepository.save(

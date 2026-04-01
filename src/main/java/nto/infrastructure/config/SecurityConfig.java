@@ -2,6 +2,8 @@ package nto.infrastructure.config;
 
 import lombok.RequiredArgsConstructor;
 import nto.infrastructure.security.JwtAuthenticationFilter;
+import nto.infrastructure.security.RestAccessDeniedHandler;
+import nto.infrastructure.security.RestAuthenticationEntryPoint;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,6 +31,8 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
+    private final RestAuthenticationEntryPoint authenticationEntryPoint;
+    private final RestAccessDeniedHandler accessDeniedHandler;
 
     @Value("${nto.app.cors.allowedOrigins:http://localhost:5173,https://api.nto.formatis.online,https://node-task-orchestrator.vercel.app}")
     private String corsAllowedOrigins;
@@ -56,6 +60,10 @@ public class SecurityConfig {
             )
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint(authenticationEntryPoint)
+                .accessDeniedHandler(accessDeniedHandler)
             )
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

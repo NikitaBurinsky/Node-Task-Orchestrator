@@ -8,9 +8,9 @@ import nto.application.dto.AuthResponseDto;
 import nto.application.dto.AuthTokensDto;
 import nto.application.dto.UserDto;
 import nto.application.interfaces.services.AuthService;
+import nto.core.utils.exceptions.InvalidRefreshTokenException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -78,7 +78,7 @@ public class AuthController {
         String refreshToken
     ) {
         if (refreshToken == null || refreshToken.isBlank()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            throw new InvalidRefreshTokenException("Refresh token is missing");
         }
 
         AuthTokensDto tokens = authService.refresh(refreshToken);

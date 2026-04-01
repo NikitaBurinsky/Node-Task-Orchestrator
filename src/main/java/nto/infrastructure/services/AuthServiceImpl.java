@@ -11,6 +11,7 @@ import nto.core.entities.RefreshTokenEntity;
 import nto.core.entities.ServerGroupEntity;
 import nto.core.entities.UserEntity;
 import nto.core.utils.ServerGroupDefaults;
+import nto.core.utils.exceptions.DuplicateUsernameException;
 import nto.core.utils.exceptions.InvalidRefreshTokenException;
 import nto.infrastructure.repositories.JpaRefreshTokenRepository;
 import nto.infrastructure.repositories.JpaServerGroupRepository;
@@ -55,7 +56,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public AuthTokensDto register(UserDto dto) {
         if (userRepository.findByUsername(dto.username()).isPresent()) {
-            throw new IllegalArgumentException("Username is already taken");
+            throw new DuplicateUsernameException("Username is already taken");
         }
 
         var user = UserEntity.builder()
@@ -76,7 +77,7 @@ public class AuthServiceImpl implements AuthService {
         );
 
         UserEntity user = userRepository.findByUsername(dto.username())
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
         return issueTokens(user);
     }
 

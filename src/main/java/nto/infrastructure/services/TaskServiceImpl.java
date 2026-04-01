@@ -15,6 +15,7 @@ import nto.core.entities.ScriptEntity;
 import nto.core.entities.ServerEntity;
 import nto.core.entities.TaskEntity;
 import nto.core.enums.TaskStatus;
+import nto.core.utils.exceptions.BadRequestException;
 import nto.core.utils.exceptions.ServerBusyException;
 import nto.infrastructure.cache.TaskStatusCache;
 import nto.infrastructure.repositories.JpaTaskRepository;
@@ -205,7 +206,7 @@ public class TaskServiceImpl implements TaskService {
                 .filter(id -> !foundIds.contains(id))
                 .toList();
 
-            throw new IllegalArgumentException("Rollback! Servers not found: " + missingIds);
+            throw new BadRequestException("Servers not found: " + missingIds);
         }
     }
 

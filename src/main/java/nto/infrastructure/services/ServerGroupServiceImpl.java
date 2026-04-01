@@ -15,6 +15,7 @@ import nto.core.entities.UserEntity;
 import nto.core.enums.TaskStatus;
 import nto.core.utils.ErrorMessages;
 import nto.core.utils.ServerGroupDefaults;
+import nto.core.utils.exceptions.ResourceConflictException;
 import nto.infrastructure.cache.TaskStatusCache;
 import nto.infrastructure.repositories.JpaScriptRepository;
 import nto.infrastructure.repositories.JpaServerGroupRepository;
@@ -80,7 +81,7 @@ public class ServerGroupServiceImpl implements ServerGroupService {
     public void deleteGroup(Long id) {
         ServerGroupEntity group = getGroupIfOwned(id);
         if (ServerGroupDefaults.DEFAULT_GROUP_NAME.equals(group.getName())) {
-            throw new IllegalStateException("Default group cannot be deleted");
+            throw new ResourceConflictException("Default group cannot be deleted");
         }
         
         
@@ -105,7 +106,7 @@ public class ServerGroupServiceImpl implements ServerGroupService {
     public void removeServerFromGroup(Long groupId, Long serverId) {
         ServerGroupEntity group = getGroupIfOwned(groupId);
         if (ServerGroupDefaults.DEFAULT_GROUP_NAME.equals(group.getName())) {
-            throw new IllegalStateException("Cannot remove server from default group");
+            throw new ResourceConflictException("Cannot remove server from default group");
         }
         ServerEntity server = getServerIfOwned(serverId);
 
@@ -142,7 +143,7 @@ public class ServerGroupServiceImpl implements ServerGroupService {
         }
 
         if (group.getServers().isEmpty()) {
-            throw new IllegalStateException("Group is empty");
+            throw new ResourceConflictException("Group is empty");
         }
 
         
