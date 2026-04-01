@@ -59,6 +59,12 @@ export interface StatsDto {
   [key: string]: number;
 }
 
+export interface ServerPingResponseDto {
+  serverId: number;
+  alive: boolean;
+  timestamp: string;
+}
+
 export interface PingResultDto {
   [key: string]: boolean;
 }

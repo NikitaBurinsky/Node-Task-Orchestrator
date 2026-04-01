@@ -10,6 +10,7 @@ import type {
   BulkTaskRequestDto,
   StatsDto,
   PingResultDto,
+  ServerPingResponseDto,
 } from '../types/api';
 
 const baseURL = 'https://api.nto.formatis.online/api';
@@ -99,7 +100,8 @@ export const serversApi = {
   getAll: (hostname?: string) => api.get<ServerDto[]>('/servers', { params: { hostname } }),
   getById: (id: number) => api.get<ServerDto>(`/servers/${id}`),
   create: (data: ServerDto) => api.post<ServerDto>('/servers', data),
-  ping: (id: number) => api.get<PingResultDto>(`/servers/${id}/ping`),
+  delete: (id: number) => api.delete(`/servers/${id}`),
+  ping: (id: number) => api.get<ServerPingResponseDto>(`/servers/${id}/ping`),
 };
 
 export const scriptsApi = {

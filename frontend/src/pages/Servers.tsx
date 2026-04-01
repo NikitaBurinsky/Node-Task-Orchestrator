@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Activity, Server as ServerIcon } from 'lucide-react';
+import { Plus, Activity, Server as ServerIcon, Trash2 } from 'lucide-react';
 import { serversApi } from '../services/api';
 import type { ServerDto } from '../types/api';
 
@@ -7,6 +7,7 @@ export function Servers() {
   const [servers, setServers] = useState<ServerDto[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [pingStatus, setPingStatus] = useState<Record<number, 'checking' | 'online' | 'offline'>>({});
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<ServerDto>({
     hostname: '',
     ipAddress: '',
@@ -23,9 +24,29 @@ export function Servers() {
     try {
       const response = await serversApi.getAll();
       setServers(response.data);
+      setError(null);
     } catch (error) {
       console.error('Failed to fetch servers:', error);
+      setError('Failed to load servers.');
     }
+  };
+
+  const clearPingStatus = (serverId: number) => {
+    setTimeout(() => {
+      setPingStatus((prev) => {
+        const newStatus = { ...prev };
+        delete newStatus[serverId];
+        return newStatus;
+      });
+    }, 3000);
+  };
+
+  const removePingStatus = (serverId: number) => {
+    setPingStatus((prev) => {
+      const newStatus = { ...prev };
+      delete newStatus[serverId];
+      return newStatus;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -40,33 +61,44 @@ export function Servers() {
         password: '',
       });
       setShowAddForm(false);
-      fetchServers();
+      setError(null);
+      await fetchServers();
     } catch (error) {
       console.error('Failed to create server:', error);
+      setError('Failed to create server.');
+    }
+  };
+
+  const handleDelete = async (serverId: number) => {
+    if (!confirm('Delete this server?')) {
+      return;
+    }
+
+    try {
+      await serversApi.delete(serverId);
+      removePingStatus(serverId);
+      setError(null);
+      await fetchServers();
+    } catch (error) {
+      console.error('Failed to delete server:', error);
+      setError('Failed to delete server.');
     }
   };
 
   const handlePing = async (serverId: number) => {
     setPingStatus((prev) => ({ ...prev, [serverId]: 'checking' }));
     try {
-      await serversApi.ping(serverId);
-      setPingStatus((prev) => ({ ...prev, [serverId]: 'online' }));
-      setTimeout(() => {
-        setPingStatus((prev) => {
-          const newStatus = { ...prev };
-          delete newStatus[serverId];
-          return newStatus;
-        });
-      }, 3000);
+      const response = await serversApi.ping(serverId);
+      setPingStatus((prev) => ({
+        ...prev,
+        [serverId]: response.data.alive ? 'online' : 'offline',
+      }));
+      setError(null);
+      clearPingStatus(serverId);
     } catch (error) {
-      setPingStatus((prev) => ({ ...prev, [serverId]: 'offline' }));
-      setTimeout(() => {
-        setPingStatus((prev) => {
-          const newStatus = { ...prev };
-          delete newStatus[serverId];
-          return newStatus;
-        });
-      }, 3000);
+      console.error('Failed to ping server:', error);
+      removePingStatus(serverId);
+      setError('Failed to ping server.');
     }
   };
 
@@ -85,6 +117,12 @@ export function Servers() {
           <span>Add Server</span>
         </button>
       </div>
+
+      {error && (
+        <div className="border border-red-800 bg-red-950 text-red-300 px-4 py-2 rounded font-mono text-sm">
+          {error}
+        </div>
+      )}
 
       {showAddForm && (
         <div className="bg-gray-900 border border-green-900 rounded-lg p-6">
@@ -192,17 +230,26 @@ export function Servers() {
                     <p className="text-green-700 text-sm font-mono">{server.ipAddress}</p>
                   </div>
                 </div>
-                {status && (
-                  <div
-                    className={`w-3 h-3 rounded-full ${
-                      status === 'checking'
-                        ? 'bg-yellow-500 animate-pulse'
-                        : status === 'online'
-                        ? 'bg-green-500'
-                        : 'bg-red-500'
-                    }`}
-                  />
-                )}
+                <div className="flex items-center space-x-3">
+                  {status && (
+                    <div
+                      className={`w-3 h-3 rounded-full ${
+                        status === 'checking'
+                          ? 'bg-yellow-500 animate-pulse'
+                          : status === 'online'
+                          ? 'bg-green-500'
+                          : 'bg-red-500'
+                      }`}
+                    />
+                  )}
+                  <button
+                    onClick={() => handleDelete(server.id!)}
+                    className="text-red-500 hover:text-red-400 transition-colors"
+                    title="Delete server"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               <div className="space-y-2 text-sm font-mono mb-4">
                 <div className="flex justify-between text-green-700">

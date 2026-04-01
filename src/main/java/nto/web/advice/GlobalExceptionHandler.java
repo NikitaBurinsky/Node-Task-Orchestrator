@@ -3,6 +3,7 @@ package nto.web.advice;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+import nto.core.utils.ErrorMessages;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -34,13 +35,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationExceptions(
         MethodArgumentNotValidException ex) {
-        return buildResponse(HttpStatus.BAD_REQUEST, "Validation Failed",
+        return buildResponse(HttpStatus.BAD_REQUEST, ErrorMessages.VALID_ERROR.getMessage(),
             extractFieldErrors(ex.getBindingResult().getFieldErrors()));
     }
 
     @ExceptionHandler(BindException.class)
     public ResponseEntity<Map<String, Object>> handleBindException(BindException ex) {
-        return buildResponse(HttpStatus.BAD_REQUEST, "Validation Failed",
+        return buildResponse(HttpStatus.BAD_REQUEST, ErrorMessages.VALID_ERROR.getMessage(),
             extractFieldErrors(ex.getBindingResult().getFieldErrors()));
     }
 
@@ -74,7 +75,7 @@ public class GlobalExceptionHandler {
         for (ConstraintViolation<?> violation : ex.getConstraintViolations()) {
             errors.put(violation.getPropertyPath().toString(), violation.getMessage());
         }
-        return buildResponse(HttpStatus.BAD_REQUEST, "Validation Failed", errors);
+        return buildResponse(HttpStatus.BAD_REQUEST, ErrorMessages.VALID_ERROR.getMessage(), errors);
     }
 
     @ExceptionHandler({DuplicateUsernameException.class, ResourceConflictException.class,
