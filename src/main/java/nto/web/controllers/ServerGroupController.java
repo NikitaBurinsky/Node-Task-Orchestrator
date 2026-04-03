@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import nto.application.dto.BulkCreateServersGroupRequestDto;
 import nto.application.dto.ServerGroupDto;
 import nto.application.dto.TaskDto;
 import nto.application.interfaces.services.ServerGroupService;
@@ -32,6 +33,15 @@ public class ServerGroupController {
     @Operation(summary = "Создать группу", description = "Создает пустую группу серверов")
     public ResponseEntity<ServerGroupDto> create(@RequestBody @Valid ServerGroupDto dto) {
         return ResponseEntity.ok(groupService.createGroup(dto));
+    }
+
+    @PostMapping("/bulk")
+    @Operation(summary = "Массовое создание группы с серверами",
+        description = "Создает новую группу и добавляет в нее несколько новых серверов атомарно")
+    public ResponseEntity<ServerGroupDto> createBulk(
+        @RequestBody @Valid BulkCreateServersGroupRequestDto dto
+    ) {
+        return ResponseEntity.ok(groupService.createGroupWithServersBulk(dto));
     }
 
     @GetMapping("/{id}/status/last")

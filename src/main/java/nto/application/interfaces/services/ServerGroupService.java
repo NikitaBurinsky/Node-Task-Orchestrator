@@ -1,5 +1,6 @@
 package nto.application.interfaces.services;
 
+import nto.application.dto.BulkCreateServersGroupRequestDto;
 import nto.application.dto.ServerGroupDto;
 import nto.application.dto.TaskDto;
 
@@ -8,6 +9,8 @@ import java.util.Map;
 
 public interface ServerGroupService {
     ServerGroupDto createGroup(ServerGroupDto dto);
+
+    ServerGroupDto createGroupWithServersBulk(BulkCreateServersGroupRequestDto dto);
 
     ServerGroupDto getGroupById(Long id);
 

@@ -2,11 +2,14 @@ package nto.infrastructure.services;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import nto.application.dto.BulkCreateServersGroupRequestDto;
 import nto.application.dto.ServerGroupDto;
+import nto.application.dto.ServerDto;
 import nto.application.dto.TaskDto;
 import nto.application.interfaces.services.MappingService;
 import nto.application.interfaces.services.ScriptExecutor;
 import nto.application.interfaces.services.ServerGroupService;
+import nto.application.interfaces.services.ServerService;
 import nto.core.entities.ScriptEntity;
 import nto.core.entities.ServerEntity;
 import nto.core.entities.ServerGroupEntity;
@@ -44,6 +47,7 @@ public class ServerGroupServiceImpl implements ServerGroupService {
 
     private final MappingService mappingService;
     private final ScriptExecutor scriptExecutor;
+    private final ServerService serverService;
     private final TaskStatusCache statusCache;
 
     @Override
@@ -58,6 +62,38 @@ public class ServerGroupServiceImpl implements ServerGroupService {
         entity.setOwner(user);
 
         return mappingService.mapToDto(groupRepository.save(entity), ServerGroupDto.class);
+    }
+
+    @Override
+    @Transactional
+    public ServerGroupDto createGroupWithServersBulk(BulkCreateServersGroupRequestDto dto) {
+        String username = getCurrentUsername();
+        UserEntity user = userRepository.findByUsername(username)
+            .orElseThrow(
+                () -> new EntityNotFoundException(ErrorMessages.USER_NOT_FOUND.getMessage()));
+
+        groupRepository.findByOwnerUsernameAndName(username, dto.name())
+            .ifPresent(group -> {
+                throw new ResourceConflictException("Group with this name already exists");
+            });
+
+        ServerGroupEntity group = groupRepository.save(ServerGroupEntity.builder()
+            .name(dto.name())
+            .owner(user)
+            .build());
+
+        for (ServerDto serverDto : dto.servers()) {
+            ServerDto createdServer = serverService.createServer(serverDto);
+            ServerEntity server = serverRepository.findById(createdServer.id())
+                .orElseThrow(
+                    () -> new EntityNotFoundException(ErrorMessages.SERVER_NOT_FOUND.getMessage()));
+
+            server.getGroups().add(group);
+            group.getServers().add(server);
+            serverRepository.save(server);
+        }
+
+        return mappingService.mapToDto(getGroupIfOwned(group.getId()), ServerGroupDto.class);
     }
 
     @Override

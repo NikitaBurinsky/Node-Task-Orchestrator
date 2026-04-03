@@ -12,21 +12,33 @@ import org.springframework.util.StopWatch;
 @Slf4j
 public class ExecutionTimeAspect {
 
-
-    @Around("@annotation(nto.application.annotations.LogExecutionTime)")
+    @Around(
+        "@annotation(nto.application.annotations.LogExecutionTime)"
+            + " || (within(@org.springframework.web.bind.annotation.RestController *)"
+            + " && execution(public * *(..)))"
+    )
     public Object logExecutionTime(ProceedingJoinPoint joinPoint) throws Throwable {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
 
+        try {
+            Object proceed = joinPoint.proceed();
+            stopWatch.stop();
 
-        Object proceed = joinPoint.proceed();
+            log.info("AOP Metric: Method [{}] executed in {} ms",
+                joinPoint.getSignature().toShortString(),
+                stopWatch.getTotalTimeMillis());
 
-        stopWatch.stop();
+            return proceed;
+        } catch (Throwable ex) {
+            stopWatch.stop();
 
-        log.info("AOP Metric: Method [{}] executed in {} ms",
-            joinPoint.getSignature().getName(),
-            stopWatch.getTotalTimeMillis());
+            log.warn("AOP Metric: Method [{}] failed in {} ms: {}",
+                joinPoint.getSignature().toShortString(),
+                stopWatch.getTotalTimeMillis(),
+                ex.getClass().getSimpleName());
 
-        return proceed;
+            throw ex;
+        }
     }
 }
