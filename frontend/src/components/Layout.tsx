@@ -1,12 +1,38 @@
-import { useEffect, useState } from 'react';
-import { Link, useLocation, Outlet } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { Terminal, Server, Layers, FileCode, List, LogOut, Menu, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { CommandPalette } from './CommandPalette';
+
+function isEditableTarget(target: EventTarget | null) {
+  const element = target as HTMLElement | null;
+  if (!element) {
+    return false;
+  }
+
+  if (element.isContentEditable) {
+    return true;
+  }
+
+  const tag = element.tagName.toLowerCase();
+  return tag === 'input' || tag === 'textarea' || tag === 'select';
+}
 
 export function Layout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const goSequenceRef = useRef<{ active: boolean; timer: number | null }>({
+    active: false,
+    timer: null,
+  });
+
+  const currentGroupId = useMemo(() => {
+    const match = location.pathname.match(/^\/groups\/(\d+)$/);
+    return match ? Number(match[1]) : null;
+  }, [location.pathname]);
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: Terminal },
@@ -19,6 +45,95 @@ export function Layout() {
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    const resetGoSequence = () => {
+      if (goSequenceRef.current.timer) {
+        window.clearTimeout(goSequenceRef.current.timer);
+      }
+      goSequenceRef.current = { active: false, timer: null };
+    };
+
+    const startGoSequence = () => {
+      resetGoSequence();
+      goSequenceRef.current.active = true;
+      goSequenceRef.current.timer = window.setTimeout(() => {
+        resetGoSequence();
+      }, 900);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isPaletteShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k';
+      if (isPaletteShortcut) {
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
+        return;
+      }
+
+      if (event.key === 'Escape') {
+        if (paletteOpen) {
+          event.preventDefault();
+          setPaletteOpen(false);
+        }
+        if (mobileMenuOpen) {
+          event.preventDefault();
+          setMobileMenuOpen(false);
+        }
+      }
+
+      if (paletteOpen) {
+        return;
+      }
+
+      const editable = isEditableTarget(event.target);
+      if (editable) {
+        return;
+      }
+
+      if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent('nto:focus-search'));
+        return;
+      }
+
+      if (event.key.toLowerCase() === 'r' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent('nto:poll-refresh'));
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      if (key === 'g' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        startGoSequence();
+        return;
+      }
+
+      if (!goSequenceRef.current.active) {
+        return;
+      }
+
+      const destination: Record<string, string> = {
+        d: '/dashboard',
+        s: '/servers',
+        g: '/groups',
+        t: '/tasks',
+      };
+
+      if (destination[key]) {
+        event.preventDefault();
+        navigate(destination[key]);
+        resetGoSequence();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (goSequenceRef.current.timer) {
+        window.clearTimeout(goSequenceRef.current.timer);
+      }
+    };
+  }, [mobileMenuOpen, navigate, paletteOpen]);
 
   const renderNavItem = (path: string, label: string, Icon: typeof Terminal, mobile = false) => {
     const isActive = location.pathname.startsWith(path);
@@ -98,6 +213,17 @@ export function Layout() {
           <Outlet />
         </div>
       </main>
+      <CommandPalette
+        open={paletteOpen}
+        canPingCurrentGroup={currentGroupId !== null}
+        onClose={() => setPaletteOpen(false)}
+        onPingCurrentGroup={() => {
+          if (currentGroupId === null) {
+            return;
+          }
+          window.dispatchEvent(new CustomEvent('nto:group-ping', { detail: { groupId: currentGroupId } }));
+        }}
+      />
     </div>
   );
 }

@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Server, Layers, FileCode, List, Plus } from 'lucide-react';
+import { Server, Layers, FileCode, List, Plus, History, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import { serversApi, groupsApi, scriptsApi, tasksApi } from '../services/api';
 import { PageHeader } from '../components/PageHeader';
 import { AsyncState } from '../components/AsyncState';
+import { useActivityFeed } from '../contexts/ActivityFeedContext';
 
 export function Dashboard() {
   const [counts, setCounts] = useState({ servers: 0, groups: 0, scripts: 0, tasks: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { activities, clearActivities } = useActivityFeed();
 
   const fetchCounts = useCallback(async () => {
     setIsLoading(true);
@@ -170,6 +172,64 @@ export function Dashboard() {
                 </div>
               </Link>
             </div>
+          </div>
+
+          <div className="bg-gray-900 border border-green-900 rounded-lg p-6 animate-page-enter">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div className="flex items-center space-x-3">
+                <History className="w-5 h-5 text-green-500" />
+                <h2 className="text-xl font-bold text-green-500 font-mono">Activity Timeline</h2>
+              </div>
+              <button
+                type="button"
+                onClick={clearActivities}
+                disabled={activities.length === 0}
+                className={`px-3 py-2 rounded text-xs font-mono transition-colors btn-operator ${
+                  activities.length > 0
+                    ? 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    : 'bg-gray-900 text-gray-600 cursor-not-allowed'
+                }`}
+              >
+                Clear
+              </button>
+            </div>
+
+            {activities.length > 0 ? (
+              <div className="space-y-2">
+                {activities.slice(0, 12).map((activity, index) => (
+                  <div
+                    key={activity.id}
+                    className="bg-black border border-green-900 rounded px-3 py-3 flex items-center justify-between gap-3 animate-card-stagger"
+                    style={{ animationDelay: `${Math.min(index, 12) * 30}ms` }}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      {activity.status === 'success' ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                      ) : activity.status === 'error' ? (
+                        <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                      ) : (
+                        <Info className="w-4 h-4 text-blue-500 shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-green-300 font-mono text-sm truncate">{activity.title}</p>
+                        {activity.details && (
+                          <p className="text-green-700 font-mono text-xs truncate">{activity.details}</p>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-green-700 text-xs font-mono shrink-0">
+                      {new Date(activity.at).toLocaleTimeString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <AsyncState
+                kind="empty"
+                title="No activity yet"
+                description="Create, delete, ping, and execute actions will appear here."
+              />
+            )}
           </div>
         </>
       )}

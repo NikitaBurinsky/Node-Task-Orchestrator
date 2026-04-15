@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { List, CheckCircle, XCircle, Clock, Loader } from 'lucide-react';
 import { tasksApi } from '../services/api';
@@ -7,6 +7,7 @@ import { PageHeader } from '../components/PageHeader';
 import { AsyncState } from '../components/AsyncState';
 import { useToast } from '../contexts/ToastContext';
 import { useAdaptivePolling } from '../hooks/useAdaptivePolling';
+import { LiveStatusStrip } from '../components/LiveStatusStrip';
 
 type TaskFilterStatus = 'ALL' | 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
 type TaskSortOrder = 'newest' | 'oldest';
@@ -22,6 +23,7 @@ export function Tasks() {
   const [tasks, setTasks] = useState<TaskDto[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
   const { showToast } = useToast();
 
@@ -82,6 +84,24 @@ export function Tasks() {
       showToast('Retry failed. Polling continues.', 'error');
     }
   }, [fetchTasks, showToast]);
+
+  useEffect(() => {
+    const handleSearchFocus = () => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    };
+
+    const handlePollingRefresh = () => {
+      void retryNow();
+    };
+
+    window.addEventListener('nto:focus-search', handleSearchFocus as EventListener);
+    window.addEventListener('nto:poll-refresh', handlePollingRefresh as EventListener);
+    return () => {
+      window.removeEventListener('nto:focus-search', handleSearchFocus as EventListener);
+      window.removeEventListener('nto:poll-refresh', handlePollingRefresh as EventListener);
+    };
+  }, [retryNow]);
 
   const filteredTasks = useMemo(
     () =>
@@ -144,11 +164,7 @@ export function Tasks() {
     }
   };
 
-  const pollingStateText = isPaused
-    ? 'Polling paused while this tab is hidden.'
-    : consecutiveErrors > 0
-    ? `Retrying with exponential backoff (attempt ${consecutiveErrors}).`
-    : 'Auto-refresh every 5 seconds.';
+  const liveStripState = isPaused ? 'paused' : consecutiveErrors > 0 ? 'backoff' : 'active';
 
   return (
     <div className="space-y-6">
@@ -193,6 +209,7 @@ export function Tasks() {
               Search (Server ID or Script ID)
             </label>
             <input
+              ref={searchInputRef}
               type="text"
               value={search}
               onChange={(event) => setQueryParam('q', event.target.value)}
@@ -202,10 +219,6 @@ export function Tasks() {
           </div>
         </div>
         <div className="flex items-center justify-between mt-4 gap-3 flex-wrap">
-          <p className="text-green-700 text-xs font-mono">
-            {pollingStateText}{' '}
-            {lastSuccessAt && <>Last updated: {new Date(lastSuccessAt).toLocaleTimeString()}.</>}
-          </p>
           <button
             type="button"
             onClick={clearFilters}
@@ -220,6 +233,14 @@ export function Tasks() {
           </button>
         </div>
       </div>
+
+      <LiveStatusStrip
+        state={liveStripState}
+        lastUpdatedAt={lastSuccessAt}
+        backoffAttempt={consecutiveErrors}
+        onRefresh={retryNow}
+        refreshLabel="Refresh tasks"
+      />
 
       {isInitialLoading && (
         <AsyncState

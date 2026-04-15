@@ -34,12 +34,21 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
   const [dialogState, setDialogState] = useState<ActiveConfirmState | null>(null);
   const resolverRef = useRef<((value: boolean) => void) | null>(null);
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const closeDialog = useCallback((result: boolean) => {
     const resolver = resolverRef.current;
     resolverRef.current = null;
     setDialogState(null);
     resolver?.(result);
+
+    const focusTarget = previousFocusRef.current;
+    if (focusTarget) {
+      window.setTimeout(() => {
+        focusTarget.focus();
+      }, 0);
+    }
   }, []);
 
   const confirm = useCallback((options: ConfirmOptions) => {
@@ -61,12 +70,45 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!dialogState) return;
 
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
     cancelButtonRef.current?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
         closeDialog(false);
+        return;
+      }
+
+      if (event.key !== 'Tab') {
+        return;
+      }
+
+      const dialogNode = dialogRef.current;
+      if (!dialogNode) {
+        return;
+      }
+
+      const focusable = dialogNode.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+
+      if (focusable.length === 0) {
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+
+      if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
       }
     };
 
@@ -100,6 +142,7 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
           }}
         >
           <div
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="confirm-dialog-title"

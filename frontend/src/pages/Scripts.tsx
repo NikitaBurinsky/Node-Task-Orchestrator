@@ -1,18 +1,21 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, FileCode, Trash2, Eye } from 'lucide-react';
+import { Plus, FileCode, Trash2, Eye, CheckSquare, Square } from 'lucide-react';
 import { scriptsApi } from '../services/api';
 import type { ScriptDto } from '../types/api';
 import { PageHeader } from '../components/PageHeader';
 import { AsyncState } from '../components/AsyncState';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirmDialog } from '../contexts/ConfirmDialogContext';
+import { useActivityFeed } from '../contexts/ActivityFeedContext';
 
 export function Scripts() {
   const [scripts, setScripts] = useState<ScriptDto[]>([]);
   const [showEditor, setShowEditor] = useState(false);
   const [selectedScript, setSelectedScript] = useState<ScriptDto | null>(null);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -22,10 +25,26 @@ export function Scripts() {
     isPublic: true,
   });
   const [searchParams, setSearchParams] = useSearchParams();
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const { showToast } = useToast();
   const { confirm } = useConfirmDialog();
+  const { addActivity } = useActivityFeed();
 
   const isCreateRequested = searchParams.get('create') === '1';
+  const searchQuery = searchParams.get('q') ?? '';
+
+  const setQueryParam = useCallback(
+    (name: string, value: string | null) => {
+      const next = new URLSearchParams(searchParams);
+      if (!value || !value.trim()) {
+        next.delete(name);
+      } else {
+        next.set(name, value.trim());
+      }
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams]
+  );
 
   const fetchScripts = useCallback(async () => {
     setIsLoading(true);
@@ -51,6 +70,21 @@ export function Scripts() {
       setShowEditor(true);
     }
   }, [isCreateRequested]);
+
+  useEffect(() => {
+    setSelectedIds((current) => current.filter((id) => scripts.some((script) => script.id === id)));
+  }, [scripts]);
+
+  useEffect(() => {
+    const handler = () => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    };
+    window.addEventListener('nto:focus-search', handler as EventListener);
+    return () => {
+      window.removeEventListener('nto:focus-search', handler as EventListener);
+    };
+  }, []);
 
   const openCreateForm = () => {
     setShowEditor(true);
@@ -78,10 +112,12 @@ export function Scripts() {
 
     setFormError(null);
     setIsSubmitting(true);
+    const scriptName = formData.name.trim();
+
     try {
       await scriptsApi.create({
         ...formData,
-        name: formData.name?.trim(),
+        name: scriptName,
       });
       setFormData({
         name: '',
@@ -90,10 +126,20 @@ export function Scripts() {
       });
       closeCreateForm();
       showToast('Script created.', 'success');
+      addActivity({
+        title: 'Script created',
+        details: scriptName,
+        status: 'success',
+      });
       await fetchScripts();
     } catch (submitError) {
       console.error('Failed to create script:', submitError);
       showToast('Failed to create script.', 'error');
+      addActivity({
+        title: 'Script create failed',
+        details: scriptName,
+        status: 'error',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -115,11 +161,78 @@ export function Scripts() {
     try {
       await scriptsApi.delete(script.id);
       showToast('Script deleted.', 'success');
+      addActivity({
+        title: 'Script deleted',
+        details: script.name ?? `#${script.id}`,
+        status: 'success',
+      });
       await fetchScripts();
     } catch (deleteError) {
       console.error('Failed to delete script:', deleteError);
       showToast('Failed to delete script.', 'error');
+      addActivity({
+        title: 'Script delete failed',
+        details: script.name ?? `#${script.id}`,
+        status: 'error',
+      });
     }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0 || isBulkDeleting) {
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: `Delete ${selectedIds.length} script${selectedIds.length === 1 ? '' : 's'}?`,
+      description: 'Selected scripts will be permanently removed.',
+      confirmText: 'Delete selected',
+      cancelText: 'Cancel',
+      tone: 'danger',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsBulkDeleting(true);
+    const byId = new Map(scripts.map((script) => [script.id, script.name ?? `#${script.id}`]));
+
+    const results = await Promise.allSettled(selectedIds.map((id) => scriptsApi.delete(id)));
+    const successIds: number[] = [];
+    const failedNames: string[] = [];
+
+    results.forEach((result, index) => {
+      const id = selectedIds[index];
+      if (result.status === 'fulfilled') {
+        successIds.push(id);
+      } else {
+        failedNames.push(byId.get(id) ?? `#${id}`);
+      }
+    });
+
+    if (successIds.length > 0) {
+      showToast(
+        `Deleted ${successIds.length} script${successIds.length === 1 ? '' : 's'}.`,
+        failedNames.length > 0 ? 'info' : 'success'
+      );
+    }
+    if (failedNames.length > 0) {
+      showToast(`Failed to delete ${failedNames.length} script(s).`, 'error');
+      setError(`Failed to delete: ${failedNames.join(', ')}`);
+    } else {
+      setError(null);
+    }
+
+    addActivity({
+      title: 'Bulk delete scripts',
+      details: `Deleted ${successIds.length}, failed ${failedNames.length}`,
+      status: failedNames.length > 0 ? 'error' : 'success',
+    });
+
+    setSelectedIds((current) => current.filter((id) => !successIds.includes(id)));
+    await fetchScripts();
+    setIsBulkDeleting(false);
   };
 
   const handleView = async (id: number) => {
@@ -129,7 +242,49 @@ export function Scripts() {
     } catch (viewError) {
       console.error('Failed to fetch script:', viewError);
       showToast('Failed to open script.', 'error');
+      addActivity({
+        title: 'Open script failed',
+        details: `Script #${id}`,
+        status: 'error',
+      });
     }
+  };
+
+  const filteredScripts = useMemo(() => {
+    const term = searchQuery.trim().toLowerCase();
+    if (!term) {
+      return scripts;
+    }
+
+    return scripts.filter((script) =>
+      [script.name, script.ownerName, script.content].join(' ').toLowerCase().includes(term)
+    );
+  }, [scripts, searchQuery]);
+
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const allVisibleSelected =
+    filteredScripts.length > 0 && filteredScripts.every((script) => selectedSet.has(script.id ?? -1));
+
+  const toggleSelect = (id: number, selected: boolean) => {
+    setSelectedIds((current) => {
+      if (selected) {
+        if (current.includes(id)) {
+          return current;
+        }
+        return [...current, id];
+      }
+      return current.filter((existing) => existing !== id);
+    });
+  };
+
+  const toggleSelectVisible = () => {
+    if (allVisibleSelected) {
+      const visibleIds = new Set(filteredScripts.map((script) => script.id).filter(Boolean) as number[]);
+      setSelectedIds((current) => current.filter((id) => !visibleIds.has(id)));
+      return;
+    }
+    const toAdd = filteredScripts.map((script) => script.id).filter(Boolean) as number[];
+    setSelectedIds((current) => Array.from(new Set([...current, ...toAdd])));
   };
 
   return (
@@ -147,6 +302,57 @@ export function Scripts() {
           </button>
         }
       />
+
+      <div className="bg-gray-900 border border-green-900 rounded-lg p-4 animate-page-enter">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
+          <div>
+            <label className="block text-green-500 font-mono text-sm mb-2">Search scripts</label>
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(event) => setQueryParam('q', event.target.value)}
+              placeholder="name, owner, content"
+              className="w-full bg-black border border-green-900 rounded px-3 py-2 text-green-400 font-mono focus:outline-none focus:border-green-500"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={toggleSelectVisible}
+            disabled={filteredScripts.length === 0}
+            className="self-end inline-flex items-center justify-center gap-2 px-3 py-2 rounded font-mono text-sm bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-50 btn-operator"
+          >
+            {allVisibleSelected ? <Square className="w-4 h-4" /> : <CheckSquare className="w-4 h-4" />}
+            <span>{allVisibleSelected ? 'Unselect Visible' : 'Select Visible'}</span>
+          </button>
+        </div>
+      </div>
+
+      {selectedIds.length > 0 && (
+        <div className="bg-gray-900 border border-green-700 rounded-lg p-4 flex items-center justify-between gap-3 flex-wrap animate-page-enter">
+          <p className="text-green-300 font-mono text-sm">
+            {selectedIds.length} script{selectedIds.length === 1 ? '' : 's'} selected
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded font-mono text-sm bg-red-900 text-red-200 hover:bg-red-800 disabled:opacity-50 btn-operator"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>{isBulkDeleting ? 'Deleting...' : 'Bulk Delete'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds([])}
+              className="px-3 py-2 rounded font-mono text-sm bg-gray-800 text-gray-300 hover:bg-gray-700 btn-operator"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && scripts.length > 0 && (
         <div className="border border-red-800 bg-red-950 text-red-300 px-4 py-2 rounded font-mono text-sm">
@@ -253,9 +459,9 @@ export function Scripts() {
         />
       )}
 
-      {!isLoading && scripts.length > 0 && (
+      {!isLoading && filteredScripts.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {scripts.map((script, index) => (
+          {filteredScripts.map((script, index) => (
             <div
               key={script.id}
               className="bg-gray-900 border border-green-900 rounded-lg p-6 hover:border-green-700 animate-card-stagger card-interactive"
@@ -269,12 +475,23 @@ export function Scripts() {
                     <p className="text-green-700 text-xs font-mono mt-1">by {script.ownerName}</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleDelete(script)}
-                  className="text-red-500 hover:text-red-400 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <label className="inline-flex items-center gap-2 text-green-600 text-xs font-mono cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedSet.has(script.id!)}
+                      onChange={(event) => toggleSelect(script.id!, event.target.checked)}
+                      className="w-4 h-4 bg-black border border-green-800 rounded"
+                    />
+                    Pick
+                  </label>
+                  <button
+                    onClick={() => handleDelete(script)}
+                    className="text-red-500 hover:text-red-400 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               <div className="bg-black border border-green-900 rounded p-2 mb-4">
                 <pre className="text-green-600 font-mono text-xs overflow-hidden h-12">
@@ -300,6 +517,14 @@ export function Scripts() {
             </div>
           ))}
         </div>
+      )}
+
+      {!isLoading && filteredScripts.length === 0 && scripts.length > 0 && !showEditor && (
+        <AsyncState
+          kind="empty"
+          title="No scripts match current search"
+          description="Try another search query."
+        />
       )}
 
       {!isLoading && scripts.length === 0 && !showEditor && !error && (

@@ -1,12 +1,13 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Terminal, CheckCircle, XCircle, Clock, Loader } from 'lucide-react';
+import { Terminal, CheckCircle, XCircle, Clock, Loader, ArrowRight } from 'lucide-react';
 import { tasksApi, serversApi, scriptsApi } from '../services/api';
 import type { TaskDto, ServerDto, ScriptDto } from '../types/api';
 import { PageHeader } from '../components/PageHeader';
 import { AsyncState } from '../components/AsyncState';
 import { useSafeBack } from '../hooks/useSafeBack';
 import { useAdaptivePolling } from '../hooks/useAdaptivePolling';
+import { LiveStatusStrip } from '../components/LiveStatusStrip';
 
 export function TaskTerminal() {
   const { id } = useParams<{ id: string }>();
@@ -15,13 +16,26 @@ export function TaskTerminal() {
   const [server, setServer] = useState<ServerDto | null>(null);
   const [script, setScript] = useState<ScriptDto | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [statusTimeline, setStatusTimeline] = useState<Array<{ status: string; at: number }>>([]);
 
   const fetchTask = useCallback(async () => {
     if (!id) return;
 
     const response = await tasksApi.getById(parseInt(id, 10));
     const taskData = response.data;
-    setTask(taskData);
+    setTask((current) => {
+      const nextStatus = taskData.status ?? 'UNKNOWN';
+      if (nextStatus && current?.status !== nextStatus) {
+        setStatusTimeline((timeline) => {
+          const alreadyFirst = timeline[0]?.status === nextStatus;
+          if (alreadyFirst) {
+            return timeline;
+          }
+          return [{ status: nextStatus, at: Date.now() }, ...timeline].slice(0, 12);
+        });
+      }
+      return taskData;
+    });
 
     if (taskData.serverId && taskData.serverId !== server?.id) {
       const serverRes = await serversApi.getById(taskData.serverId);
@@ -45,6 +59,27 @@ export function TaskTerminal() {
       setError('Failed to load task details. Auto-retry is enabled.');
     },
   });
+
+  const refreshNow = useCallback(async () => {
+    try {
+      await fetchTask();
+      setError(null);
+    } catch (fetchError) {
+      console.error('Manual refresh failed:', fetchError);
+      setError('Failed to load task details. Auto-retry is enabled.');
+    }
+  }, [fetchTask]);
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      void refreshNow();
+    };
+
+    window.addEventListener('nto:poll-refresh', handleRefresh as EventListener);
+    return () => {
+      window.removeEventListener('nto:poll-refresh', handleRefresh as EventListener);
+    };
+  }, [refreshNow]);
 
   const getStatusIcon = () => {
     switch (task?.status) {
@@ -110,16 +145,13 @@ export function TaskTerminal() {
         currentLabel={task?.id ? `Task #${task.id}` : 'Task'}
       />
 
-      <div className="bg-gray-900 border border-green-900 rounded-lg px-4 py-3">
-        <p className="text-xs font-mono text-green-700">
-          {isPaused
-            ? 'Live updates paused while tab is hidden.'
-            : consecutiveErrors > 0
-            ? `Connection unstable, retrying (attempt ${consecutiveErrors}).`
-            : 'Live refresh every 2 seconds.'}{' '}
-          {lastSuccessAt && <>Last updated: {new Date(lastSuccessAt).toLocaleTimeString()}.</>}
-        </p>
-      </div>
+      <LiveStatusStrip
+        state={isPaused ? 'paused' : consecutiveErrors > 0 ? 'backoff' : 'active'}
+        lastUpdatedAt={lastSuccessAt}
+        backoffAttempt={consecutiveErrors}
+        onRefresh={refreshNow}
+        refreshLabel="Refresh task"
+      />
 
       {error && (
         <div className="border border-red-800 bg-red-950 text-red-300 px-4 py-3 rounded font-mono text-sm">
@@ -131,6 +163,26 @@ export function TaskTerminal() {
         {getStatusIcon()}
         <p className={`font-mono text-sm ${getStatusColor()}`}>Status: {task?.status}</p>
       </div>
+
+      {statusTimeline.length > 0 && (
+        <div className="bg-gray-900 border border-green-900 rounded-lg p-4 animate-page-enter">
+          <h2 className="text-green-500 font-mono text-sm font-bold mb-3">Status Timeline</h2>
+          <div className="space-y-2">
+            {statusTimeline.map((item, index) => (
+              <div
+                key={`${item.status}-${item.at}`}
+                className="flex items-center justify-between bg-black border border-green-900 rounded px-3 py-2 text-xs font-mono"
+              >
+                <div className="flex items-center gap-2 text-green-400">
+                  <span>{item.status}</span>
+                  {index < statusTimeline.length - 1 && <ArrowRight className="w-3 h-3 text-green-700" />}
+                </div>
+                <span className="text-green-700">{new Date(item.at).toLocaleTimeString()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-gray-900 border border-green-900 rounded-lg p-4">

@@ -1,23 +1,27 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Activity, Server as ServerIcon, Trash2 } from 'lucide-react';
+import { Plus, Activity, Server as ServerIcon, Trash2, CheckSquare, Square } from 'lucide-react';
 import { serversApi } from '../services/api';
 import type { ServerDto } from '../types/api';
 import { PageHeader } from '../components/PageHeader';
 import { AsyncState } from '../components/AsyncState';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirmDialog } from '../contexts/ConfirmDialogContext';
+import { useActivityFeed } from '../contexts/ActivityFeedContext';
+
+type PingStatus = 'checking' | 'online' | 'offline';
 
 export function Servers() {
   const [servers, setServers] = useState<ServerDto[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [pingStatus, setPingStatus] = useState<Record<number, 'checking' | 'online' | 'offline'>>(
-    {}
-  );
+  const [pingStatus, setPingStatus] = useState<Record<number, PingStatus>>({});
   const [pingErrors, setPingErrors] = useState<Record<number, boolean>>({});
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isBulkPinging, setIsBulkPinging] = useState(false);
   const [formData, setFormData] = useState<ServerDto>({
     hostname: '',
     ipAddress: '',
@@ -26,10 +30,26 @@ export function Servers() {
     password: '',
   });
   const [searchParams, setSearchParams] = useSearchParams();
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const { showToast } = useToast();
   const { confirm } = useConfirmDialog();
+  const { addActivity } = useActivityFeed();
 
   const isCreateRequested = searchParams.get('create') === '1';
+  const searchQuery = searchParams.get('q') ?? '';
+
+  const setQueryParam = useCallback(
+    (name: string, value: string | null) => {
+      const next = new URLSearchParams(searchParams);
+      if (!value || !value.trim()) {
+        next.delete(name);
+      } else {
+        next.set(name, value.trim());
+      }
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams]
+  );
 
   const fetchServers = useCallback(async () => {
     setIsLoading(true);
@@ -54,6 +74,23 @@ export function Servers() {
       setShowAddForm(true);
     }
   }, [isCreateRequested]);
+
+  useEffect(() => {
+    setSelectedIds((current) =>
+      current.filter((id) => servers.some((server) => server.id === id))
+    );
+  }, [servers]);
+
+  useEffect(() => {
+    const handler = () => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    };
+    window.addEventListener('nto:focus-search', handler as EventListener);
+    return () => {
+      window.removeEventListener('nto:focus-search', handler as EventListener);
+    };
+  }, []);
 
   const openCreateForm = () => {
     setShowAddForm(true);
@@ -118,11 +155,21 @@ export function Servers() {
       closeCreateForm();
       setError(null);
       showToast('Server created.', 'success');
+      addActivity({
+        title: 'Server created',
+        details: formData.hostname,
+        status: 'success',
+      });
       await fetchServers();
     } catch (submitError) {
       console.error('Failed to create server:', submitError);
       setError('Failed to create server.');
       showToast('Failed to create server.', 'error');
+      addActivity({
+        title: 'Server create failed',
+        details: formData.hostname || 'Unknown hostname',
+        status: 'error',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -147,15 +194,25 @@ export function Servers() {
       clearPingError(serverId);
       setError(null);
       showToast('Server deleted.', 'success');
+      addActivity({
+        title: 'Server deleted',
+        details: serverName,
+        status: 'success',
+      });
       await fetchServers();
     } catch (deleteError) {
       console.error('Failed to delete server:', deleteError);
       setError('Failed to delete server.');
       showToast('Failed to delete server.', 'error');
+      addActivity({
+        title: 'Server delete failed',
+        details: serverName,
+        status: 'error',
+      });
     }
   };
 
-  const handlePing = async (serverId: number) => {
+  const handlePing = async (serverId: number, hostname: string) => {
     setPingStatus((prev) => ({ ...prev, [serverId]: 'checking' }));
     clearPingError(serverId);
     try {
@@ -167,6 +224,11 @@ export function Servers() {
       }));
       setError(null);
       showToast(alive ? 'Server is online.' : 'Server is offline.', alive ? 'success' : 'info');
+      addActivity({
+        title: `Ping ${alive ? 'success' : 'offline'}`,
+        details: hostname,
+        status: alive ? 'success' : 'info',
+      });
       clearPingStatus(serverId);
     } catch (pingError) {
       console.error('Failed to ping server:', pingError);
@@ -175,7 +237,174 @@ export function Servers() {
       schedulePingErrorClear(serverId);
       setError('Failed to ping server.');
       showToast('Failed to ping server.', 'error');
+      addActivity({
+        title: 'Ping failed',
+        details: hostname,
+        status: 'error',
+      });
     }
+  };
+
+  const filteredServers = useMemo(() => {
+    const term = searchQuery.trim().toLowerCase();
+    if (!term) {
+      return servers;
+    }
+
+    return servers.filter((server) =>
+      [server.hostname, server.ipAddress, server.username].join(' ').toLowerCase().includes(term)
+    );
+  }, [searchQuery, servers]);
+
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const allVisibleSelected =
+    filteredServers.length > 0 && filteredServers.every((server) => selectedSet.has(server.id ?? -1));
+
+  const toggleSelect = (serverId: number, selected: boolean) => {
+    setSelectedIds((current) => {
+      if (selected) {
+        if (current.includes(serverId)) {
+          return current;
+        }
+        return [...current, serverId];
+      }
+      return current.filter((id) => id !== serverId);
+    });
+  };
+
+  const toggleSelectVisible = () => {
+    if (allVisibleSelected) {
+      const visibleIds = new Set(filteredServers.map((server) => server.id).filter(Boolean) as number[]);
+      setSelectedIds((current) => current.filter((id) => !visibleIds.has(id)));
+      return;
+    }
+
+    const toAdd = filteredServers.map((server) => server.id).filter(Boolean) as number[];
+    setSelectedIds((current) => Array.from(new Set([...current, ...toAdd])));
+  };
+
+  const clearSelection = () => setSelectedIds([]);
+
+  const handleBulkPing = async () => {
+    if (selectedIds.length === 0 || isBulkPinging) {
+      return;
+    }
+
+    setIsBulkPinging(true);
+    selectedIds.forEach((id) => {
+      setPingStatus((prev) => ({ ...prev, [id]: 'checking' }));
+      clearPingError(id);
+    });
+
+    const byId = new Map(servers.map((server) => [server.id, server]));
+    const results = await Promise.allSettled(
+      selectedIds.map(async (id) => {
+        const response = await serversApi.ping(id);
+        return { id, alive: response.data.alive };
+      })
+    );
+
+    let online = 0;
+    let offline = 0;
+    let failed = 0;
+
+    results.forEach((result, index) => {
+      const id = selectedIds[index];
+      if (result.status === 'fulfilled') {
+        const nextStatus: PingStatus = result.value.alive ? 'online' : 'offline';
+        setPingStatus((prev) => ({ ...prev, [id]: nextStatus }));
+        if (result.value.alive) {
+          online += 1;
+        } else {
+          offline += 1;
+        }
+        clearPingStatus(id);
+      } else {
+        failed += 1;
+        removePingStatus(id);
+        setPingErrors((prev) => ({ ...prev, [id]: true }));
+        schedulePingErrorClear(id);
+      }
+    });
+
+    const summary = `Bulk ping finished. Online: ${online}, Offline: ${offline}, Errors: ${failed}.`;
+    showToast(summary, failed > 0 ? 'error' : offline > 0 ? 'info' : 'success');
+    addActivity({
+      title: 'Bulk ping servers',
+      details: summary,
+      status: failed > 0 ? 'error' : 'success',
+    });
+
+    if (failed > 0) {
+      const failedNames = selectedIds
+        .filter((_, idx) => results[idx].status === 'rejected')
+        .map((id) => byId.get(id)?.hostname ?? `#${id}`)
+        .join(', ');
+      setError(`Failed to ping: ${failedNames}`);
+    } else {
+      setError(null);
+    }
+
+    setIsBulkPinging(false);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0 || isBulkDeleting) {
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: `Delete ${selectedIds.length} server${selectedIds.length === 1 ? '' : 's'}?`,
+      description: 'Selected servers will be permanently removed.',
+      confirmText: 'Delete selected',
+      cancelText: 'Cancel',
+      tone: 'danger',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsBulkDeleting(true);
+
+    const byId = new Map(servers.map((server) => [server.id, server.hostname]));
+    const results = await Promise.allSettled(selectedIds.map((id) => serversApi.delete(id)));
+
+    const successIds: number[] = [];
+    const failedNames: string[] = [];
+    results.forEach((result, index) => {
+      const id = selectedIds[index];
+      if (result.status === 'fulfilled') {
+        successIds.push(id);
+        removePingStatus(id);
+        clearPingError(id);
+      } else {
+        failedNames.push(byId.get(id) ?? `#${id}`);
+      }
+    });
+
+    if (successIds.length > 0) {
+      showToast(
+        `Deleted ${successIds.length} server${successIds.length === 1 ? '' : 's'}.`,
+        failedNames.length > 0 ? 'info' : 'success'
+      );
+      addActivity({
+        title: 'Bulk delete servers',
+        details: `Deleted ${successIds.length}, failed ${failedNames.length}`,
+        status: failedNames.length > 0 ? 'error' : 'success',
+      });
+    }
+
+    if (failedNames.length > 0) {
+      setError(`Failed to delete: ${failedNames.join(', ')}`);
+      showToast(`Failed to delete ${failedNames.length} server(s).`, 'error');
+    } else {
+      setError(null);
+    }
+
+    setSelectedIds((current) => current.filter((id) => !successIds.includes(id)));
+    await fetchServers();
+    setIsBulkDeleting(false);
   };
 
   return (
@@ -193,6 +422,66 @@ export function Servers() {
           </button>
         }
       />
+
+      <div className="bg-gray-900 border border-green-900 rounded-lg p-4 animate-page-enter">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
+          <div>
+            <label className="block text-green-500 font-mono text-sm mb-2">Search servers</label>
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(event) => setQueryParam('q', event.target.value)}
+              placeholder="hostname, ip, user"
+              className="w-full bg-black border border-green-900 rounded px-3 py-2 text-green-400 font-mono focus:outline-none focus:border-green-500"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={toggleSelectVisible}
+            disabled={filteredServers.length === 0}
+            className="self-end inline-flex items-center justify-center gap-2 px-3 py-2 rounded font-mono text-sm bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-50 btn-operator"
+          >
+            {allVisibleSelected ? <Square className="w-4 h-4" /> : <CheckSquare className="w-4 h-4" />}
+            <span>{allVisibleSelected ? 'Unselect Visible' : 'Select Visible'}</span>
+          </button>
+        </div>
+      </div>
+
+      {selectedIds.length > 0 && (
+        <div className="bg-gray-900 border border-green-700 rounded-lg p-4 flex items-center justify-between gap-3 flex-wrap animate-page-enter">
+          <p className="text-green-300 font-mono text-sm">
+            {selectedIds.length} server{selectedIds.length === 1 ? '' : 's'} selected
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleBulkPing}
+              disabled={isBulkPinging}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded font-mono text-sm bg-blue-900 text-blue-300 hover:bg-blue-800 disabled:opacity-50 btn-operator"
+            >
+              <Activity className="w-4 h-4" />
+              <span>{isBulkPinging ? 'Pinging...' : 'Bulk Ping'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded font-mono text-sm bg-red-900 text-red-200 hover:bg-red-800 disabled:opacity-50 btn-operator"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>{isBulkDeleting ? 'Deleting...' : 'Bulk Delete'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="px-3 py-2 rounded font-mono text-sm bg-gray-800 text-gray-300 hover:bg-gray-700 btn-operator"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && servers.length > 0 && (
         <div className="border border-red-800 bg-red-950 text-red-300 px-4 py-2 rounded font-mono text-sm">
@@ -232,7 +521,7 @@ export function Servers() {
                     })
                   }
                   className="w-full bg-black border border-green-900 rounded px-3 py-2 text-green-400 font-mono focus:outline-none focus:border-green-500"
-                  pattern="^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$"
+                  pattern="^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$"
                   required
                 />
               </div>
@@ -320,11 +609,12 @@ export function Servers() {
         />
       )}
 
-      {!isLoading && servers.length > 0 && (
+      {!isLoading && filteredServers.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {servers.map((server, index) => {
+          {filteredServers.map((server, index) => {
             const status = pingStatus[server.id!];
             const hasPingError = Boolean(pingErrors[server.id!]);
+            const isSelected = selectedSet.has(server.id!);
             return (
               <div
                 key={server.id}
@@ -344,6 +634,15 @@ export function Servers() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
+                    <label className="inline-flex items-center gap-2 text-green-600 text-xs font-mono cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(event) => toggleSelect(server.id!, event.target.checked)}
+                        className="w-4 h-4 bg-black border border-green-800 rounded"
+                      />
+                      Pick
+                    </label>
                     {status && (
                       <div
                         className={`w-3 h-3 rounded-full ${
@@ -375,7 +674,7 @@ export function Servers() {
                   </div>
                 </div>
                 <button
-                  onClick={() => handlePing(server.id!)}
+                  onClick={() => handlePing(server.id!, server.hostname)}
                   disabled={status === 'checking'}
                   className={`w-full flex items-center justify-center space-x-2 px-3 py-2 rounded font-mono text-sm transition-colors disabled:opacity-50 btn-operator ${
                     hasPingError
@@ -390,6 +689,14 @@ export function Servers() {
             );
           })}
         </div>
+      )}
+
+      {!isLoading && filteredServers.length === 0 && servers.length > 0 && !showAddForm && (
+        <AsyncState
+          kind="empty"
+          title="No servers match current search"
+          description="Try another search query."
+        />
       )}
 
       {!isLoading && servers.length === 0 && !showAddForm && !error && (

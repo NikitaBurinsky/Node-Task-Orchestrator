@@ -7,6 +7,7 @@ import { PageHeader } from '../components/PageHeader';
 import { AsyncState } from '../components/AsyncState';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirmDialog } from '../contexts/ConfirmDialogContext';
+import { useActivityFeed } from '../contexts/ActivityFeedContext';
 
 export function ServerGroups() {
   const [groups, setGroups] = useState<ServerGroupDto[]>([]);
@@ -20,6 +21,7 @@ export function ServerGroups() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirmDialog();
+  const { addActivity } = useActivityFeed();
 
   const isCreateRequested = searchParams.get('create') === '1';
 
@@ -85,11 +87,21 @@ export function ServerGroups() {
       closeCreateForm();
       setError(null);
       showToast('Group created.', 'success');
+      addActivity({
+        title: 'Group created',
+        details: trimmedName,
+        status: 'success',
+      });
       await fetchData();
     } catch (submitError) {
       console.error('Failed to create group:', submitError);
       setError('Failed to create group.');
       showToast('Failed to create group.', 'error');
+      addActivity({
+        title: 'Group create failed',
+        details: trimmedName,
+        status: 'error',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -114,11 +126,21 @@ export function ServerGroups() {
       await groupsApi.delete(group.id);
       setError(null);
       showToast('Group deleted.', 'success');
+      addActivity({
+        title: 'Group deleted',
+        details: group.name,
+        status: 'success',
+      });
       await fetchData();
     } catch (deleteError) {
       console.error('Failed to delete group:', deleteError);
       setError('Failed to delete group.');
       showToast('Failed to delete group.', 'error');
+      addActivity({
+        title: 'Group delete failed',
+        details: group.name,
+        status: 'error',
+      });
     }
   };
 
