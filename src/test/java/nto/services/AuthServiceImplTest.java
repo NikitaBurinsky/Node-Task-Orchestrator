@@ -144,6 +144,13 @@ class AuthServiceImplTest {
     }
 
     @Test
+    void refreshShouldThrowWhenTokenHashingFails() {
+        ReflectionTestUtils.setField(authService, "jwtSecret", "%%%");
+
+        assertThrows(IllegalStateException.class, () -> authService.refresh("raw-token"));
+    }
+
+    @Test
     void refreshShouldThrowWhenTokenAlreadyRevoked() {
         UserEntity user = UserEntity.builder().id(5L).username("alice").build();
         RefreshTokenEntity revoked = RefreshTokenEntity.builder()
@@ -228,6 +235,25 @@ class AuthServiceImplTest {
 
         verify(refreshTokenRepository).revokeAllActiveByUserId(eq(9L), any(LocalDateTime.class));
         verify(userRepository).save(user);
+    }
+
+    @Test
+    void logoutShouldDoNothingWhenRefreshTokenBlankAndAccessTokenMissing() {
+        authService.logout(" ", null);
+
+        verify(refreshTokenRepository, never()).revokeAllActiveByUserId(any(Long.class), any(LocalDateTime.class));
+        verify(userRepository, never()).save(any(UserEntity.class));
+    }
+
+    @Test
+    void logoutShouldDoNothingWhenAccessTokenResolvesNullUsername() {
+        when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.empty());
+        when(jwtUtils.extractUsernameAllowExpired("access")).thenReturn(null);
+
+        authService.logout("refresh", "access");
+
+        verify(refreshTokenRepository, never()).revokeAllActiveByUserId(any(Long.class), any(LocalDateTime.class));
+        verify(userRepository, never()).save(any(UserEntity.class));
     }
 
     @Test

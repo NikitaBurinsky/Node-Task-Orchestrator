@@ -11,19 +11,27 @@ import nto.core.entities.TaskEntity;
 import nto.core.enums.TaskStatus;
 import nto.infrastructure.cache.TaskStatusCache;
 import nto.infrastructure.repositories.JpaTaskRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.LockSupport;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "nto.executor.type", havingValue = "mock", matchIfMissing = true)
 public class MockScriptExecutor implements ScriptExecutor {
+
+    @Value("${nto.mock.counterRaceDelayMs:10}")
+    private long counterRaceDelayMs;
+    @Value("${nto.mock.executionDelayMs:2000}")
+    private long executionDelayMs;
 
     private final JpaTaskRepository taskRepository;
     private final TaskStatusCache statusCache;
@@ -56,6 +64,7 @@ public class MockScriptExecutor implements ScriptExecutor {
 
         task.setStartedAt(java.time.LocalDateTime.now());
         updateStatus(task, TaskStatus.RUNNING, "Initializing connection...");
+        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(executionDelayMs));
 
         try {
             String fakeOutput = "Connected to " + task.getServer().getHostname() + "\n" +
@@ -80,15 +89,12 @@ public class MockScriptExecutor implements ScriptExecutor {
         log.info("Task {} -> {}", task.getId(), status);
     }
 
+    private void incrementUnsafe(){
+        ++unsafeCounter;
+    }
     private void incrementCounters() {
+        incrementUnsafe();
         atomicCounter.incrementAndGet();
-        long temp = unsafeCounter;
-        try {
-            Thread.sleep(10);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        unsafeCounter = temp + 1;
     }
 
     @Override

@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -66,6 +67,27 @@ class SshSessionManagerTest {
     }
 
     @Test
+    void destroyShouldSkipStoppingWhenClientIsNull() {
+        SshSessionManager manager = new SshSessionManager();
+
+        manager.destroy();
+
+        assertTrue(sessions(manager).isEmpty());
+    }
+
+    @Test
+    void destroyShouldSkipStoppingWhenClientIsNotStarted() {
+        SshSessionManager manager = new SshSessionManager();
+        SshClient client = mock(SshClient.class);
+        when(client.isStarted()).thenReturn(false);
+        ReflectionTestUtils.setField(manager, "client", client);
+
+        manager.destroy();
+
+        verify(client, never()).stop();
+    }
+
+    @Test
     void getOrCreateSessionShouldReturnExistingOpenSession() throws IOException {
         SshSessionManager manager = new SshSessionManager();
         SshClient client = mock(SshClient.class);
@@ -84,11 +106,72 @@ class SshSessionManagerTest {
     }
 
     @Test
+    void getOrCreateSessionShouldReplaceExistingSessionWhenItIsClosed() throws IOException {
+        SshSessionManager manager = new SshSessionManager();
+        SshClient client = mock(SshClient.class);
+        ReflectionTestUtils.setField(manager, "client", client);
+
+        ConnectFuture connectFuture = mock(ConnectFuture.class);
+        ClientSession existing = mock(ClientSession.class);
+        ClientSession session = mock(ClientSession.class);
+        AuthFuture authFuture = mock(AuthFuture.class);
+
+        when(existing.isOpen()).thenReturn(true);
+        when(existing.isClosed()).thenReturn(true);
+        sessions(manager).put(1L, existing);
+
+        when(client.connect("root", "10.0.0.1", 22)).thenReturn(connectFuture);
+        when(connectFuture.verify(eq(10L), eq(TimeUnit.SECONDS))).thenReturn(connectFuture);
+        when(connectFuture.getSession()).thenReturn(session);
+        when(session.auth()).thenReturn(authFuture);
+        when(authFuture.verify(eq(10L), eq(TimeUnit.SECONDS))).thenReturn(authFuture);
+
+        ClientSession result = manager.getOrCreateSession(server(1L, "root"));
+
+        assertSame(session, result);
+    }
+
+    @Test
+    void getOrCreateSessionShouldReplaceExistingSessionWhenItIsNotOpen() throws IOException {
+        SshSessionManager manager = new SshSessionManager();
+        SshClient client = mock(SshClient.class);
+        ReflectionTestUtils.setField(manager, "client", client);
+
+        ConnectFuture connectFuture = mock(ConnectFuture.class);
+        ClientSession existing = mock(ClientSession.class);
+        ClientSession session = mock(ClientSession.class);
+        AuthFuture authFuture = mock(AuthFuture.class);
+
+        when(existing.isOpen()).thenReturn(false);
+        sessions(manager).put(1L, existing);
+
+        when(client.connect("root", "10.0.0.1", 22)).thenReturn(connectFuture);
+        when(connectFuture.verify(eq(10L), eq(TimeUnit.SECONDS))).thenReturn(connectFuture);
+        when(connectFuture.getSession()).thenReturn(session);
+        when(session.auth()).thenReturn(authFuture);
+        when(authFuture.verify(eq(10L), eq(TimeUnit.SECONDS))).thenReturn(authFuture);
+
+        ClientSession result = manager.getOrCreateSession(server(1L, "root"));
+
+        assertSame(session, result);
+    }
+
+    @Test
     void getOrCreateSessionShouldThrowWhenUsernameMissing() {
         SshSessionManager manager = new SshSessionManager();
         ReflectionTestUtils.setField(manager, "client", mock(SshClient.class));
 
         ServerEntity server = server(1L, null);
+
+        assertThrows(IllegalStateException.class, () -> manager.getOrCreateSession(server));
+    }
+
+    @Test
+    void getOrCreateSessionShouldThrowWhenUsernameBlank() {
+        SshSessionManager manager = new SshSessionManager();
+        ReflectionTestUtils.setField(manager, "client", mock(SshClient.class));
+
+        ServerEntity server = server(1L, " ");
 
         assertThrows(IllegalStateException.class, () -> manager.getOrCreateSession(server));
     }
@@ -141,6 +224,29 @@ class SshSessionManagerTest {
         manager.invalidateSession(5L);
 
         verify(session, never()).close(true);
+        assertTrue(sessions(manager).isEmpty());
+    }
+
+    @Test
+    void invalidateSessionShouldDoNothingWhenSessionMissing() {
+        SshSessionManager manager = new SshSessionManager();
+
+        manager.invalidateSession(5L);
+
+        assertTrue(sessions(manager).isEmpty());
+    }
+
+    @Test
+    void invalidateSessionShouldSwallowCloseExceptions() {
+        SshSessionManager manager = new SshSessionManager();
+        ClientSession session = mock(ClientSession.class);
+        when(session.isClosed()).thenReturn(false);
+        doThrow(new RuntimeException("boom")).when(session).close(true);
+        sessions(manager).put(5L, session);
+
+        manager.invalidateSession(5L);
+
+        verify(session).close(true);
         assertTrue(sessions(manager).isEmpty());
     }
 

@@ -21,11 +21,13 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -33,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -146,6 +149,115 @@ class SshScriptExecutorTest {
         assertEquals(List.of(TaskStatus.RUNNING, TaskStatus.FAILED), savedStatuses);
         verify(sessionManager).invalidateSession(101L);
         verify(statusCache, times(2)).put(any(TaskEntity.class));
+    }
+
+    @Test
+    void executeAsyncShouldInvalidateSessionWhenChannelExecutionFails() throws Exception {
+        TaskEntity task = taskWithIds(13L, 103L);
+        ClientSession session = mock(ClientSession.class);
+        ChannelExec channel = mock(ChannelExec.class);
+        CopyOnWriteArrayList<TaskStatus> savedStatuses = new CopyOnWriteArrayList<>();
+
+        when(statusCache.get(13L)).thenReturn(task);
+        when(taskRepository.findById(13L)).thenReturn(Optional.of(task));
+        when(taskRepository.save(any(TaskEntity.class))).thenAnswer(invocation -> {
+            TaskEntity saved = invocation.getArgument(0);
+            savedStatuses.add(saved.getStatus());
+            return saved;
+        });
+        when(sessionManager.getOrCreateSession(task.getServer())).thenReturn(session);
+        when(session.createExecChannel("echo ok")).thenReturn(channel);
+        when(channel.open()).thenThrow(new RuntimeException("open failed"));
+
+        sshScriptExecutor.executeAsync(13L);
+
+        assertEquals(List.of(TaskStatus.RUNNING, TaskStatus.FAILED), savedStatuses);
+        verify(sessionManager, times(2)).invalidateSession(103L);
+    }
+
+    @Test
+    void executeAsyncShouldFailWhenExitStatusMissingAndCombineOutputs() throws Exception {
+        TaskEntity task = taskWithIds(12L, 102L);
+        ClientSession session = mock(ClientSession.class);
+        ChannelExec channel = mock(ChannelExec.class);
+        OpenFuture openFuture = mock(OpenFuture.class);
+        CopyOnWriteArrayList<TaskStatus> savedStatuses = new CopyOnWriteArrayList<>();
+        CopyOnWriteArrayList<String> savedOutputs = new CopyOnWriteArrayList<>();
+
+        when(statusCache.get(12L)).thenReturn(task);
+        when(taskRepository.findById(12L)).thenReturn(Optional.of(task));
+        when(taskRepository.save(any(TaskEntity.class))).thenAnswer(invocation -> {
+            TaskEntity saved = invocation.getArgument(0);
+            savedStatuses.add(saved.getStatus());
+            savedOutputs.add(saved.getOutput());
+            return saved;
+        });
+        when(sessionManager.getOrCreateSession(task.getServer())).thenReturn(session);
+        when(session.createExecChannel("echo ok")).thenReturn(channel);
+        doAnswer(invocation -> {
+            ((ByteArrayOutputStream) invocation.getArgument(0))
+                .write("stdout".getBytes(StandardCharsets.UTF_8));
+            return null;
+        }).when(channel).setOut(any(ByteArrayOutputStream.class));
+        doAnswer(invocation -> {
+            ((ByteArrayOutputStream) invocation.getArgument(0))
+                .write("stderr".getBytes(StandardCharsets.UTF_8));
+            return null;
+        }).when(channel).setErr(any(ByteArrayOutputStream.class));
+        when(channel.open()).thenReturn(openFuture);
+        when(openFuture.verify(eq(15L), eq(TimeUnit.SECONDS))).thenReturn(openFuture);
+        when(channel.waitFor(eq(EnumSet.of(ClientChannelEvent.CLOSED)), eq(0L)))
+            .thenReturn(EnumSet.of(ClientChannelEvent.CLOSED));
+        when(channel.getExitStatus()).thenReturn(null);
+
+        sshScriptExecutor.executeAsync(12L);
+
+        assertEquals(List.of(TaskStatus.RUNNING, TaskStatus.FAILED), savedStatuses);
+        assertTrue(savedOutputs.get(1).contains("stdout"));
+        assertTrue(savedOutputs.get(1).contains("[ERR] stderr"));
+        assertTrue(savedOutputs.get(1).contains("Exit Status: -1"));
+    }
+
+    @Test
+    void executeAsyncShouldFormatOnlyStderrWithoutLeadingBlankLine() throws Exception {
+        TaskEntity task = taskWithIds(14L, 104L);
+        ClientSession session = mock(ClientSession.class);
+        ChannelExec channel = mock(ChannelExec.class);
+        OpenFuture openFuture = mock(OpenFuture.class);
+        CopyOnWriteArrayList<String> savedOutputs = new CopyOnWriteArrayList<>();
+
+        when(statusCache.get(14L)).thenReturn(task);
+        when(taskRepository.findById(14L)).thenReturn(Optional.of(task));
+        when(taskRepository.save(any(TaskEntity.class))).thenAnswer(invocation -> {
+            TaskEntity saved = invocation.getArgument(0);
+            savedOutputs.add(saved.getOutput());
+            return saved;
+        });
+        when(sessionManager.getOrCreateSession(task.getServer())).thenReturn(session);
+        when(session.createExecChannel("echo ok")).thenReturn(channel);
+        doAnswer(invocation -> {
+            ((ByteArrayOutputStream) invocation.getArgument(0))
+                .write("stderr-only".getBytes(StandardCharsets.UTF_8));
+            return null;
+        }).when(channel).setErr(any(ByteArrayOutputStream.class));
+        when(channel.open()).thenReturn(openFuture);
+        when(openFuture.verify(eq(15L), eq(TimeUnit.SECONDS))).thenReturn(openFuture);
+        when(channel.waitFor(eq(EnumSet.of(ClientChannelEvent.CLOSED)), eq(0L)))
+            .thenReturn(EnumSet.of(ClientChannelEvent.CLOSED));
+        when(channel.getExitStatus()).thenReturn(1);
+
+        sshScriptExecutor.executeAsync(14L);
+
+        assertEquals("[ERR] stderr-only\nExit Status: 1", savedOutputs.get(1));
+    }
+
+    @Test
+    void executeAsyncShouldThrowWhenTaskMissingDuringStatusUpdate() {
+        when(statusCache.get(12L)).thenReturn(taskWithIds(12L, 102L));
+        when(taskRepository.findById(12L)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> sshScriptExecutor.executeAsync(12L));
+        verify(taskRepository, never()).save(any(TaskEntity.class));
     }
 
     @Test

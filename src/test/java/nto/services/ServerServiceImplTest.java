@@ -153,6 +153,14 @@ class ServerServiceImplTest {
     }
 
     @Test
+    void deleteServerShouldThrowWhenMissing() {
+        when(serverRepository.findById(5L)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> serverService.deleteServer(5L));
+        verify(serverRepository, never()).deleteById(5L);
+    }
+
+    @Test
     void deleteServerShouldThrowWhenNotOwned() {
         ServerEntity server = serverOwnedBy("other");
         server.setId(5L);
@@ -177,6 +185,13 @@ class ServerServiceImplTest {
     }
 
     @Test
+    void getServerByIdShouldThrowWhenMissing() {
+        when(serverRepository.findById(10L)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> serverService.getServerById(10L));
+    }
+
+    @Test
     void getServerByIdShouldThrowWhenNotOwned() {
         ServerEntity server = serverOwnedBy("other");
         server.setId(10L);
@@ -186,8 +201,25 @@ class ServerServiceImplTest {
     }
 
     @Test
+    void getServerByIdShouldThrowWhenGroupOwnerMissing() {
+        ServerEntity server = serverWithGroupWithoutOwner();
+        server.setId(10L);
+        when(serverRepository.findById(10L)).thenReturn(Optional.of(server));
+
+        assertThrows(AccessDeniedException.class, () -> serverService.getServerById(10L));
+    }
+
+    @Test
     void getServersByHostnameShouldReturnEmptyOnBlankInput() {
         List<ServerDto> result = serverService.getServersByHostname(" ");
+
+        assertTrue(result.isEmpty());
+        verify(serverRepository, never()).findAllByHostname(any());
+    }
+
+    @Test
+    void getServersByHostnameShouldReturnEmptyOnNullInput() {
+        List<ServerDto> result = serverService.getServersByHostname(null);
 
         assertTrue(result.isEmpty());
         verify(serverRepository, never()).findAllByHostname(any());
@@ -204,6 +236,28 @@ class ServerServiceImplTest {
         List<ServerDto> result = serverService.getServersByHostname("srv");
 
         assertEquals(expected, result);
+    }
+
+    @Test
+    void createServerShouldThrowWhenCurrentUserMissing() {
+        ServerDto input = new ServerDto(null, "srv", "10.0.0.1", 22, "root", "pw");
+
+        when(userRepository.findByUsername(TEST_USER)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> serverService.createServer(input));
+    }
+
+    @Test
+    void createServerShouldThrowWhenUsernameMissing() {
+        UserEntity owner = UserEntity.builder().id(1L).username(TEST_USER).build();
+        ServerEntity mapped = ServerEntity.builder().groups(new HashSet<>()).build();
+        ServerDto input = new ServerDto(null, "srv", "10.0.0.1", 22, null, "pw");
+
+        when(userRepository.findByUsername(TEST_USER)).thenReturn(Optional.of(owner));
+        when(mappingService.mapToEntity(input, ServerEntity.class)).thenReturn(mapped);
+
+        assertThrows(BadRequestException.class, () -> serverService.createServer(input));
+        verify(serverRepository, never()).save(any(ServerEntity.class));
     }
 
     @Test
@@ -268,6 +322,21 @@ class ServerServiceImplTest {
     }
 
     @Test
+    void updateServerShouldSaveWithoutResolvingSshUsernameWhenUsernameNull() {
+        ServerEntity server = serverOwnedBy(TEST_USER);
+        server.setId(1L);
+        ServerDto dto = new ServerDto(null, "updated", "10.0.0.3", 2222, null, "newpw");
+
+        when(serverRepository.findById(1L)).thenReturn(Optional.of(server));
+
+        serverService.updateServer(1L, dto);
+
+        verify(userRepository, never()).findByUsername(any());
+        verify(sshUsernameRepository, never()).findByOwnerAndUsername(any(), any());
+        verify(serverRepository).save(server);
+    }
+
+    @Test
     void checkConnectionShouldReturnPingResult() {
         ServerEntity server = serverOwnedBy(TEST_USER);
         server.setId(50L);
@@ -279,6 +348,14 @@ class ServerServiceImplTest {
 
         assertTrue(result);
         verify(scriptExecutor).ping(50L);
+    }
+
+    @Test
+    void checkConnectionShouldThrowWhenServerMissing() {
+        when(serverRepository.findById(50L)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> serverService.checkConnection(50L));
+        verify(scriptExecutor, never()).ping(any());
     }
 
     @Test
@@ -297,6 +374,23 @@ class ServerServiceImplTest {
             .id(100L)
             .name("g")
             .owner(owner)
+            .servers(new HashSet<>())
+            .build();
+
+        return ServerEntity.builder()
+            .id(1L)
+            .hostname("srv")
+            .ipAddress("10.0.0.1")
+            .port(22)
+            .password("pw")
+            .groups(new HashSet<>(List.of(group)))
+            .build();
+    }
+
+    private ServerEntity serverWithGroupWithoutOwner() {
+        ServerGroupEntity group = ServerGroupEntity.builder()
+            .id(100L)
+            .name("g")
             .servers(new HashSet<>())
             .build();
 

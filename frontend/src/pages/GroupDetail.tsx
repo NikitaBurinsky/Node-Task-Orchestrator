@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Activity, Play, X, Lock } from 'lucide-react';
+import { Plus, Activity, Play, X, Lock } from 'lucide-react';
 import { groupsApi, serversApi, scriptsApi } from '../services/api';
 import type { ServerGroupDto, ServerDto, ScriptDto, PingResultDto } from '../types/api';
+import { PageHeader } from '../components/PageHeader';
+import { useSafeBack } from '../hooks/useSafeBack';
+import { useToast } from '../contexts/ToastContext';
 
 export function GroupDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useSafeBack('/groups');
   const [group, setGroup] = useState<ServerGroupDto | null>(null);
   const [allServers, setAllServers] = useState<ServerDto[]>([]);
   const [groupServers, setGroupServers] = useState<ServerDto[]>([]);
@@ -16,104 +20,122 @@ export function GroupDetail() {
   const [selectedScript, setSelectedScript] = useState<number | null>(null);
   const [pingResults, setPingResults] = useState<PingResultDto>({});
   const [pinging, setPinging] = useState(false);
+  const [executing, setExecuting] = useState(false);
+  const [updatingMembership, setUpdatingMembership] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { showToast } = useToast();
+
+  const groupId = id ? parseInt(id, 10) : null;
+
+  const fetchData = useCallback(async () => {
+    if (!groupId) return;
+
+    try {
+      const [groupRes, serversRes, scriptsRes] = await Promise.all([
+        groupsApi.getById(groupId),
+        serversApi.getAll(),
+        scriptsApi.getAll(),
+      ]);
+
+      setGroup(groupRes.data);
+      setAllServers(serversRes.data);
+      setScripts(scriptsRes.data);
+      setGroupServers(groupRes.data.servers ?? []);
+      setError(null);
+    } catch (fetchError) {
+      console.error('Failed to fetch data:', fetchError);
+      setError('Failed to load group data.');
+    }
+  }, [groupId]);
 
   useEffect(() => {
-    if (id) {
-      fetchData();
-    }
-  }, [id]);
-
-    const fetchData = async () => {
-        try {
-            const [groupRes, serversRes, scriptsRes] = await Promise.all([
-                groupsApi.getById(parseInt(id!)),
-                serversApi.getAll(),
-                scriptsApi.getAll(),
-            ]);
-
-            setGroup(groupRes.data);
-            setAllServers(serversRes.data);
-            setScripts(scriptsRes.data);
-            setError(null);
-
-            // --- БЫЛО (Старая логика) ---
-            // const serverIds = groupRes.data.serverIds || [];
-            // const servers = serversRes.data.filter((s) => serverIds.includes(s.id!));
-            // setGroupServers(servers);
-
-            // --- СТАЛО (Новая логика) ---
-            // Бэкенд уже прислал нам полные объекты серверов в поле servers
-            if (groupRes.data.servers) {
-                setGroupServers(groupRes.data.servers);
-            } else {
-                setGroupServers([]);
-            }
-
-        } catch (error) {
-            console.error('Failed to fetch data:', error);
-            setError('Failed to load group data.');
-        }
-    };
+    fetchData();
+  }, [fetchData]);
 
   const isDefaultGroup = group?.name === 'Default';
 
   const handleAddServer = async (serverId: number) => {
+    if (!groupId || updatingMembership) return;
+
+    setUpdatingMembership(true);
     try {
-      await groupsApi.addServer(parseInt(id!), serverId);
+      await groupsApi.addServer(groupId, serverId);
       setShowAddServer(false);
       setError(null);
-      fetchData();
-    } catch (error) {
-      console.error('Failed to add server:', error);
+      showToast('Server added to group.', 'success');
+      await fetchData();
+    } catch (addError) {
+      console.error('Failed to add server:', addError);
       setError('Failed to add server to group.');
+      showToast('Failed to add server to group.', 'error');
+    } finally {
+      setUpdatingMembership(false);
     }
   };
 
   const handleRemoveServer = async (serverId: number) => {
+    if (!groupId || updatingMembership) return;
+
+    setUpdatingMembership(true);
     try {
-      await groupsApi.removeServer(parseInt(id!), serverId);
+      await groupsApi.removeServer(groupId, serverId);
       setError(null);
-      fetchData();
-    } catch (error) {
-      console.error('Failed to remove server:', error);
+      showToast('Server removed from group.', 'success');
+      await fetchData();
+    } catch (removeError) {
+      console.error('Failed to remove server:', removeError);
       setError('Failed to remove server from group.');
+      showToast('Failed to remove server from group.', 'error');
+    } finally {
+      setUpdatingMembership(false);
     }
   };
 
   const handlePingAll = async () => {
+    if (!groupId) return;
+
     setPinging(true);
     try {
-      const response = await groupsApi.ping(parseInt(id!));
+      const response = await groupsApi.ping(groupId);
       setPingResults(response.data);
       setError(null);
+      showToast('Ping completed for group servers.', 'success');
       setTimeout(() => setPingResults({}), 5000);
-    } catch (error) {
-      console.error('Failed to ping group:', error);
+    } catch (pingError) {
+      console.error('Failed to ping group:', pingError);
       setError('Failed to ping group.');
+      showToast('Failed to ping group.', 'error');
     } finally {
       setPinging(false);
     }
   };
 
   const handleExecute = async () => {
-    if (!selectedScript) return;
+    if (!groupId || !selectedScript || executing) return;
+
+    setExecuting(true);
     try {
-      const response = await groupsApi.execute(parseInt(id!), selectedScript);
+      const response = await groupsApi.execute(groupId, selectedScript);
       setShowExecute(false);
+      setSelectedScript(null);
       setError(null);
-      if (response.data.length > 0) {
+      showToast('Script execution started.', 'success');
+      if (response.data.length > 0 && response.data[0].id) {
         navigate(`/tasks/${response.data[0].id}`);
       }
-    } catch (error) {
-      console.error('Failed to execute script:', error);
+    } catch (executeError) {
+      console.error('Failed to execute script:', executeError);
       setError('Failed to execute script.');
+      showToast('Failed to execute script.', 'error');
+    } finally {
+      setExecuting(false);
     }
   };
 
-    const availableServers = allServers.filter(
-        (s) => !group?.servers?.some((gs) => gs.id === s.id)
-    );
+  const availableServers = useMemo(
+    () => allServers.filter((server) => !groupServers.some((groupServer) => groupServer.id === server.id)),
+    [allServers, groupServers]
+  );
 
   const getPingStatus = (serverId: number) => {
     const key = serverId.toString();
@@ -131,31 +153,22 @@ export function GroupDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <button
-          onClick={() => navigate('/groups')}
-          className="text-green-500 hover:text-green-400 transition-colors"
+      <PageHeader
+        title={`$ ${group.name}`}
+        subtitle={`${groupServers.length} server${groupServers.length !== 1 ? 's' : ''}`}
+        onBack={goBack}
+        currentLabel={group.name}
+      />
+
+      {isDefaultGroup && (
+        <div
+          className="inline-flex items-center space-x-2 text-green-600 text-xs font-mono bg-gray-900 border border-green-900 rounded px-3 py-2"
+          title="Default group is always present"
         >
-          <ArrowLeft className="w-6 h-6" />
-        </button>
-        <div>
-          <div className="flex items-center space-x-2">
-            <h1 className="text-3xl font-bold text-green-500 font-mono">{group.name}</h1>
-            {isDefaultGroup && (
-              <div
-                className="flex items-center space-x-1 text-green-600 text-xs font-mono"
-                title="Default group is always present"
-              >
-                <Lock className="w-3 h-3" />
-                <span>Default group</span>
-              </div>
-            )}
-          </div>
-          <p className="text-green-700 font-mono mt-1">
-            {groupServers.length} server{groupServers.length !== 1 ? 's' : ''}
-          </p>
+          <Lock className="w-3 h-3" />
+          <span>Default group</span>
         </div>
-      </div>
+      )}
 
       {error && (
         <div className="border border-red-800 bg-red-950 text-red-300 px-4 py-2 rounded font-mono text-sm">
@@ -163,7 +176,7 @@ export function GroupDetail() {
         </div>
       )}
 
-      <div className="flex space-x-3">
+      <div className="flex flex-wrap gap-3">
         <button
           onClick={() => setShowAddServer(true)}
           className="flex items-center space-x-2 bg-green-900 text-green-300 px-4 py-2 rounded font-mono hover:bg-green-800 transition-colors"
@@ -189,30 +202,33 @@ export function GroupDetail() {
         </button>
       </div>
 
-      {showAddServer && availableServers.length > 0 && (
+      {showAddServer && (
         <div className="bg-gray-900 border border-green-900 rounded-lg p-6">
-          <h2 className="text-lg font-bold text-green-500 font-mono mb-4">
-            Add Server to Group
-          </h2>
-          <div className="space-y-2">
-            {availableServers.map((server) => (
-              <div
-                key={server.id}
-                className="flex items-center justify-between bg-black border border-green-900 rounded p-3"
-              >
-                <div className="font-mono text-green-400">
-                  <span className="font-bold">{server.hostname}</span>
-                  <span className="text-green-700 ml-3">{server.ipAddress}</span>
-                </div>
-                <button
-                  onClick={() => handleAddServer(server.id!)}
-                  className="bg-green-900 text-green-300 px-3 py-1 rounded text-sm font-mono hover:bg-green-800"
+          <h2 className="text-lg font-bold text-green-500 font-mono mb-4">Add Server to Group</h2>
+          {availableServers.length > 0 ? (
+            <div className="space-y-2">
+              {availableServers.map((server) => (
+                <div
+                  key={server.id}
+                  className="flex items-center justify-between bg-black border border-green-900 rounded p-3"
                 >
-                  Add
-                </button>
-              </div>
-            ))}
-          </div>
+                  <div className="font-mono text-green-400">
+                    <span className="font-bold">{server.hostname}</span>
+                    <span className="text-green-700 ml-3">{server.ipAddress}</span>
+                  </div>
+                  <button
+                    onClick={() => handleAddServer(server.id!)}
+                    disabled={updatingMembership}
+                    className="bg-green-900 text-green-300 px-3 py-1 rounded text-sm font-mono hover:bg-green-800 disabled:opacity-50"
+                  >
+                    Add
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-green-700 font-mono text-sm">No available servers to add.</p>
+          )}
           <button
             onClick={() => setShowAddServer(false)}
             className="mt-4 bg-gray-800 text-gray-400 px-4 py-2 rounded font-mono hover:bg-gray-700"
@@ -224,9 +240,7 @@ export function GroupDetail() {
 
       {showExecute && (
         <div className="bg-gray-900 border border-green-900 rounded-lg p-6">
-          <h2 className="text-lg font-bold text-green-500 font-mono mb-4">
-            Execute on All Servers
-          </h2>
+          <h2 className="text-lg font-bold text-green-500 font-mono mb-4">Execute on All Servers</h2>
           <div className="space-y-2 mb-4">
             {scripts.map((script) => (
               <div
@@ -245,13 +259,16 @@ export function GroupDetail() {
           <div className="flex space-x-3">
             <button
               onClick={handleExecute}
-              disabled={!selectedScript}
+              disabled={!selectedScript || executing}
               className="bg-yellow-900 text-yellow-300 px-4 py-2 rounded font-mono hover:bg-yellow-800 disabled:opacity-50"
             >
-              Execute
+              {executing ? 'Executing...' : 'Execute'}
             </button>
             <button
-              onClick={() => setShowExecute(false)}
+              onClick={() => {
+                setShowExecute(false);
+                setSelectedScript(null);
+              }}
               className="bg-gray-800 text-gray-400 px-4 py-2 rounded font-mono hover:bg-gray-700"
             >
               Cancel
@@ -264,10 +281,7 @@ export function GroupDetail() {
         {groupServers.map((server) => {
           const status = getPingStatus(server.id!);
           return (
-            <div
-              key={server.id}
-              className="bg-gray-900 border border-green-900 rounded-lg p-6"
-            >
+            <div key={server.id} className="bg-gray-900 border border-green-900 rounded-lg p-6">
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h3 className="text-green-400 font-mono font-bold flex items-center space-x-2">
@@ -293,7 +307,7 @@ export function GroupDetail() {
                       ? 'text-red-900 cursor-not-allowed'
                       : 'text-red-500 hover:text-red-400'
                   }`}
-                  disabled={isDefaultGroup}
+                  disabled={isDefaultGroup || updatingMembership}
                   title={isDefaultGroup ? 'Default group cannot remove servers' : 'Remove server'}
                 >
                   <X className="w-4 h-4" />

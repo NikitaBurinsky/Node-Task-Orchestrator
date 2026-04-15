@@ -1,27 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, Server, Layers, FileCode, List } from 'lucide-react';
-import { statsApi, serversApi, groupsApi, scriptsApi, tasksApi } from '../services/api';
-import type { StatsDto } from '../types/api';
+import { Server, Layers, FileCode, List, Plus } from 'lucide-react';
+import { serversApi, groupsApi, scriptsApi, tasksApi } from '../services/api';
+import { PageHeader } from '../components/PageHeader';
 
 export function Dashboard() {
-  const [stats, setStats] = useState<StatsDto>({});
   const [counts, setCounts] = useState({ servers: 0, groups: 0, scripts: 0, tasks: 0 });
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const response = await statsApi.getStats();
-        setStats(response.data);
-      } catch (error) {
-        console.error('Failed to fetch stats:', error);
-      }
-    };
-
-    fetchStats();
-    const interval = setInterval(fetchStats, 3000);
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -47,12 +31,7 @@ export function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-green-500 font-mono mb-2">
-          $ dashboard
-        </h1>
-        <p className="text-green-700 font-mono">System Overview</p>
-      </div>
+      <PageHeader title="$ dashboard" subtitle="System Overview" />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Link
@@ -113,37 +92,60 @@ export function Dashboard() {
       </div>
 
       <div className="bg-gray-900 border border-green-900 rounded-lg p-6">
-        <div className="flex items-center space-x-3 mb-6">
-          <Activity className="w-6 h-6 text-green-500" />
-          <h2 className="text-xl font-bold text-green-500 font-mono">
-            Concurrency Stats
-          </h2>
+        <div className="flex items-center space-x-3 mb-4">
+          <Plus className="w-5 h-5 text-green-500" />
+          <h2 className="text-xl font-bold text-green-500 font-mono">Quick Actions</h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-black border border-green-900 rounded p-4">
-            <div className="text-green-700 font-mono text-sm mb-2">Safe Counter</div>
-            <div className="text-4xl font-bold text-green-400 font-mono">
-              {stats.safeCounter || 0}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Link
+            to="/servers?create=1"
+            className="bg-black border border-green-900 rounded p-4 hover:border-green-700 transition-colors"
+          >
+            <div className="flex items-center space-x-3">
+              <Server className="w-5 h-5 text-green-500" />
+              <div>
+                <div className="text-green-400 font-mono font-bold">Add Server</div>
+                <div className="text-green-700 text-xs font-mono">Open create form</div>
+              </div>
             </div>
-            <div className="mt-2 flex items-center space-x-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-green-600 text-xs font-mono">LIVE</span>
+          </Link>
+          <Link
+            to="/groups?create=1"
+            className="bg-black border border-green-900 rounded p-4 hover:border-green-700 transition-colors"
+          >
+            <div className="flex items-center space-x-3">
+              <Layers className="w-5 h-5 text-green-500" />
+              <div>
+                <div className="text-green-400 font-mono font-bold">New Group</div>
+                <div className="text-green-700 text-xs font-mono">Create server group</div>
+              </div>
             </div>
-          </div>
-          <div className="bg-black border border-yellow-900 rounded p-4">
-            <div className="text-yellow-700 font-mono text-sm mb-2">Unsafe Counter</div>
-            <div className="text-4xl font-bold text-yellow-400 font-mono">
-              {stats.unsafeCounter || 0}
+          </Link>
+          <Link
+            to="/scripts?create=1"
+            className="bg-black border border-green-900 rounded p-4 hover:border-green-700 transition-colors"
+          >
+            <div className="flex items-center space-x-3">
+              <FileCode className="w-5 h-5 text-green-500" />
+              <div>
+                <div className="text-green-400 font-mono font-bold">New Script</div>
+                <div className="text-green-700 text-xs font-mono">Open script editor</div>
+              </div>
             </div>
-            <div className="mt-2 flex items-center space-x-2">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-              <span className="text-yellow-600 text-xs font-mono">LIVE</span>
+          </Link>
+          <Link
+            to="/tasks"
+            className="bg-black border border-green-900 rounded p-4 hover:border-green-700 transition-colors"
+          >
+            <div className="flex items-center space-x-3">
+              <List className="w-5 h-5 text-green-500" />
+              <div>
+                <div className="text-green-400 font-mono font-bold">Open Tasks</div>
+                <div className="text-green-700 text-xs font-mono">Inspect execution history</div>
+              </div>
             </div>
-          </div>
+          </Link>
         </div>
-        <p className="text-green-700 text-xs font-mono mt-4">
-          Auto-refreshing every 3 seconds
-        </p>
       </div>
     </div>
   );

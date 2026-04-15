@@ -3,8 +3,18 @@ plugins {
     id 'org.springframework.boot' version '3.2.2'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'checkstyle'
-}
+    id 'jacoco'
+    id "org.sonarqube" version "4.4.1.3373" // Проверьте актуальную версию на plugins.gradle.org
 
+}
+sonar {
+    properties {
+        property "sonar.projectKey", "ваш_ключ_проекта"
+        property "sonar.organization", "ваша_организация"
+        property "sonar.host.url", "https://sonarcloud.io"
+        property "sonar.coverage.jacoco.xmlReportPaths", "${buildDir}/reports/jacoco/test/jacocoTestReport.xml"
+    }
+}
 group = 'nto'
 version = '0.0.1-SNAPSHOT'
 description = 'Demo project for Spring Boot'
@@ -19,6 +29,7 @@ java {
         languageVersion = JavaLanguageVersion.of(21)
     }
 }
+
 
 configurations {
     compileOnly {
@@ -37,7 +48,7 @@ dependencies {
     implementation 'org.apache.sshd:sshd-core:2.12.1'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
-
+    runtimeOnly 'com.h2database:h2'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
@@ -62,6 +73,19 @@ tasks.named('test') {
 tasks.withType(Checkstyle) {
     reports {
         xml.required = true
+        html.required = true
+    }
+}
+jacoco {
+    toolVersion = "0.8.11" // Рекомендуется использовать актуальную версию
+}
+test {
+    finalizedBy jacocoTestReport // Тесты завершились -> запускаем отчет
+}
+
+jacocoTestReport {
+    reports {
+        xml.required = true // ЭТО ОБЯЗАТЕЛЬНО ДЛЯ SONAR
         html.required = true
     }
 }

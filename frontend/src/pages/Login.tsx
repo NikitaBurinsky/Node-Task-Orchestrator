@@ -18,8 +18,8 @@ export function Login() {
 
     try {
       await login({ username, password });
-      navigate('/dashboard');
-    } catch (err) {
+      navigate('/dashboard', { replace: true });
+    } catch {
       setError('Authentication failed. Check your credentials.');
     } finally {
       setLoading(false);

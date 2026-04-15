@@ -65,7 +65,6 @@ public class ServerGroupServiceImpl implements ServerGroupService {
     }
 
     @Override
-    @Transactional
     public ServerGroupDto createGroupWithServersBulk(BulkCreateServersGroupRequestDto dto) {
         String username = getCurrentUsername();
         UserEntity user = userRepository.findByUsername(username)

@@ -1,22 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { List, CheckCircle, XCircle, Clock, Loader } from 'lucide-react';
 import { tasksApi } from '../services/api';
 import type { TaskDto } from '../types/api';
+import { PageHeader } from '../components/PageHeader';
+import { useToast } from '../contexts/ToastContext';
 
 export function Tasks() {
   const [tasks, setTasks] = useState<TaskDto[]>([]);
   const [statusFilter, setStatusFilter] = useState<'ALL' | TaskDto['status']>('ALL');
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
+  const { showToast } = useToast();
 
-  useEffect(() => {
-    fetchTasks();
-    const interval = setInterval(fetchTasks, 5000);
-    return () => clearInterval(interval);
-  }, [statusFilter]);
-
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     try {
       const params =
         statusFilter === 'ALL' || !statusFilter ? undefined : { status: statusFilter };
@@ -24,8 +21,15 @@ export function Tasks() {
       setTasks(response.data.sort((a, b) => (b.id || 0) - (a.id || 0)));
     } catch (error) {
       console.error('Failed to fetch tasks:', error);
+      showToast('Failed to load tasks.', 'error');
     }
-  };
+  }, [showToast, statusFilter]);
+
+  useEffect(() => {
+    fetchTasks();
+    const interval = setInterval(fetchTasks, 5000);
+    return () => clearInterval(interval);
+  }, [fetchTasks]);
 
   const getStatusIcon = (status: TaskDto['status']) => {
     switch (status) {
@@ -88,10 +92,7 @@ export function Tasks() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-green-500 font-mono">$ tasks</h1>
-        <p className="text-green-700 font-mono mt-1">Execution history</p>
-      </div>
+      <PageHeader title="$ tasks" subtitle="Execution history" />
 
       <div className="bg-gray-900 border border-green-900 rounded-lg p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

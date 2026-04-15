@@ -119,4 +119,27 @@ class MockScriptExecutorTest {
         assertThrows(EntityNotFoundException.class, () -> mockScriptExecutor.executeAsync(77L));
         verify(taskRepository, never()).save(any(TaskEntity.class));
     }
+
+    @Test
+    void executeAsyncShouldPreserveInterruptFlagWhenSleepIsInterrupted() {
+        TaskEntity task = TaskEntity.builder()
+            .id(12L)
+            .server(ServerEntity.builder().hostname("srv").build())
+            .script(ScriptEntity.builder().name("deploy").build())
+            .status(TaskStatus.PENDING)
+            .build();
+
+        when(taskRepository.findById(12L)).thenReturn(Optional.of(task));
+        when(taskRepository.save(any(TaskEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        try {
+            Thread.currentThread().interrupt();
+
+            mockScriptExecutor.executeAsync(12L);
+
+            assertTrue(Thread.currentThread().isInterrupted());
+        } finally {
+            Thread.interrupted();
+        }
+    }
 }

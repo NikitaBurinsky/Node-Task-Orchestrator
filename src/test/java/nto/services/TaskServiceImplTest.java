@@ -96,6 +96,39 @@ class TaskServiceImplTest {
     }
 
     @Test
+    void createTaskShouldCreateAndStartTaskWhenExecutorIsNotMockAndServerIsIdle() {
+        ReflectionTestUtils.setField(taskService, "executorType", "ssh");
+
+        TaskDto inputDto = new TaskDto(null, TaskStatus.PENDING, null, 11L, 22L, null, null, null);
+        ScriptEntity script = scriptOwnedBy(TEST_USER, false);
+        script.setId(22L);
+        ServerEntity server = serverOwnedBy(TEST_USER);
+        server.setId(11L);
+
+        TaskEntity savedTask = TaskEntity.builder()
+            .id(56L)
+            .server(server)
+            .script(script)
+            .status(TaskStatus.PENDING)
+            .build();
+        TaskDto expectedDto = new TaskDto(56L, TaskStatus.PENDING, null, 11L, 22L, null, null, null);
+
+        when(taskRepository.existsByServerIdAndStatusIn(
+            inputDto.serverId(), List.of(TaskStatus.PENDING, TaskStatus.RUNNING)))
+            .thenReturn(false);
+        when(scriptRepository.findById(22L)).thenReturn(Optional.of(script));
+        when(serverRepository.findById(11L)).thenReturn(Optional.of(server));
+        when(taskRepository.save(any(TaskEntity.class))).thenReturn(savedTask);
+        when(mappingService.mapToDto(savedTask, TaskDto.class)).thenReturn(expectedDto);
+
+        TaskDto result = taskService.createTask(inputDto);
+
+        assertEquals(expectedDto, result);
+        verify(statusCache).put(savedTask);
+        verify(scriptExecutor).executeAsync(56L);
+    }
+
+    @Test
     void createTaskShouldCreateAndStartTaskWhenDataIsValid() {
         TaskDto inputDto = new TaskDto(null, TaskStatus.PENDING, null, 11L, 22L, null, null, null);
         ScriptEntity script = scriptOwnedBy(TEST_USER, false);
@@ -136,6 +169,31 @@ class TaskServiceImplTest {
     }
 
     @Test
+    void createTaskShouldAllowPublicScriptOwnedByAnotherUser() {
+        TaskDto inputDto = new TaskDto(null, TaskStatus.PENDING, null, 11L, 33L, null, null, null);
+        ScriptEntity publicScript = scriptOwnedBy("other", true);
+        publicScript.setId(33L);
+        ServerEntity server = serverOwnedBy(TEST_USER);
+        server.setId(11L);
+        TaskEntity savedTask = TaskEntity.builder()
+            .id(57L)
+            .server(server)
+            .script(publicScript)
+            .status(TaskStatus.PENDING)
+            .build();
+        TaskDto expectedDto = new TaskDto(57L, TaskStatus.PENDING, null, 11L, 33L, null, null, null);
+
+        when(scriptRepository.findById(33L)).thenReturn(Optional.of(publicScript));
+        when(serverRepository.findById(11L)).thenReturn(Optional.of(server));
+        when(taskRepository.save(any(TaskEntity.class))).thenReturn(savedTask);
+        when(mappingService.mapToDto(savedTask, TaskDto.class)).thenReturn(expectedDto);
+
+        TaskDto result = taskService.createTask(inputDto);
+
+        assertEquals(expectedDto, result);
+    }
+
+    @Test
     void createTaskShouldThrowWhenServerIsNotOwned() {
         TaskDto inputDto = new TaskDto(null, TaskStatus.PENDING, null, 11L, 22L, null, null, null);
         ScriptEntity script = scriptOwnedBy(TEST_USER, false);
@@ -145,6 +203,34 @@ class TaskServiceImplTest {
 
         when(scriptRepository.findById(22L)).thenReturn(Optional.of(script));
         when(serverRepository.findById(11L)).thenReturn(Optional.of(foreignServer));
+
+        assertThrows(AccessDeniedException.class, () -> taskService.createTask(inputDto));
+        verify(taskRepository, never()).save(any(TaskEntity.class));
+    }
+
+    @Test
+    void createTaskShouldThrowWhenServerNotFound() {
+        TaskDto inputDto = new TaskDto(null, TaskStatus.PENDING, null, 11L, 22L, null, null, null);
+        ScriptEntity script = scriptOwnedBy(TEST_USER, false);
+        script.setId(22L);
+
+        when(scriptRepository.findById(22L)).thenReturn(Optional.of(script));
+        when(serverRepository.findById(11L)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> taskService.createTask(inputDto));
+        verify(taskRepository, never()).save(any(TaskEntity.class));
+    }
+
+    @Test
+    void createTaskShouldThrowWhenServerGroupOwnerMissing() {
+        TaskDto inputDto = new TaskDto(null, TaskStatus.PENDING, null, 11L, 22L, null, null, null);
+        ScriptEntity script = scriptOwnedBy(TEST_USER, false);
+        script.setId(22L);
+        ServerEntity server = serverWithGroupWithoutOwner();
+        server.setId(11L);
+
+        when(scriptRepository.findById(22L)).thenReturn(Optional.of(script));
+        when(serverRepository.findById(11L)).thenReturn(Optional.of(server));
 
         assertThrows(AccessDeniedException.class, () -> taskService.createTask(inputDto));
         verify(taskRepository, never()).save(any(TaskEntity.class));
@@ -276,6 +362,38 @@ class TaskServiceImplTest {
     }
 
     @Test
+    void createTasksBulkShouldValidateOwnershipAndProceedWhenExecutorIsNotMock() {
+        ReflectionTestUtils.setField(taskService, "executorType", "ssh");
+
+        BulkTaskRequestDto dto = new BulkTaskRequestDto(8L, List.of(1L));
+        ScriptEntity script = scriptOwnedBy(TEST_USER, false);
+        script.setId(8L);
+        ServerEntity ownedServer = serverOwnedBy(TEST_USER);
+        ownedServer.setId(1L);
+
+        TaskEntity savedTask = TaskEntity.builder()
+            .id(100L)
+            .script(script)
+            .server(ownedServer)
+            .status(TaskStatus.PENDING)
+            .build();
+        List<TaskDto> mapped = List.of(
+            new TaskDto(100L, TaskStatus.PENDING, null, 1L, 8L, null, null, null)
+        );
+
+        when(scriptRepository.findById(8L)).thenReturn(Optional.of(script));
+        when(serverRepository.findAllById(dto.serverIds())).thenReturn(List.of(ownedServer));
+        when(taskRepository.saveAll(any())).thenReturn(List.of(savedTask));
+        when(mappingService.mapListToDto(List.of(savedTask), TaskDto.class)).thenReturn(mapped);
+
+        List<TaskDto> result = taskService.createTasksBulk(dto);
+
+        assertEquals(mapped, result);
+        verify(statusCache).put(savedTask);
+        verify(scriptExecutor).executeAsync(100L);
+    }
+
+    @Test
     void createTasksBulkShouldCreateTasksAndTriggerExecutor() {
         BulkTaskRequestDto dto = new BulkTaskRequestDto(8L, List.of(1L, 2L));
         ScriptEntity script = scriptOwnedBy(TEST_USER, false);
@@ -389,6 +507,24 @@ class TaskServiceImplTest {
             .id(10L)
             .name("group")
             .owner(UserEntity.builder().id(7L).username(username).build())
+            .servers(Set.of())
+            .build();
+
+        return ServerEntity.builder()
+            .id(20L)
+            .hostname("srv")
+            .ipAddress("127.0.0.1")
+            .port(22)
+            .password("pw")
+            .groups(Set.of(group))
+            .tasks(new ArrayList<>())
+            .build();
+    }
+
+    private ServerEntity serverWithGroupWithoutOwner() {
+        ServerGroupEntity group = ServerGroupEntity.builder()
+            .id(10L)
+            .name("group")
             .servers(Set.of())
             .build();
 

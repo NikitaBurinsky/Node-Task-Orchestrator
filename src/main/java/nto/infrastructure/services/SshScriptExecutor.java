@@ -46,9 +46,6 @@ public class SshScriptExecutor implements ScriptExecutor {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void executeAsync(Long taskId) {
         TaskEntity task = prepareTask(taskId);
-        if (task == null) {
-            return;
-        }
 
         try {
             ExecutionResult result = performSshExecution(task);

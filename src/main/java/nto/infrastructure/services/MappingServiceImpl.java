@@ -32,10 +32,6 @@ public class MappingServiceImpl implements MappingService {
             return null;
         }
         var profile = (MapperProfile<E, D>) getProfile(entity.getClass(), dtoClass);
-        if (profile == null) {
-            throw new IllegalArgumentException(
-                "No profile found for entity class: " + entity.getClass());
-        }
         return profile.mapToDto(entity);
     }
 
@@ -46,9 +42,6 @@ public class MappingServiceImpl implements MappingService {
             return null;
         }
         var profile = (MapperProfile<E, D>) getProfile(entityClass, dto.getClass());
-        if (profile == null) {
-            throw new IllegalArgumentException("No profile found for dto class: " + dto.getClass());
-        }
         return profile.mapToEntity(dto);
     }
 
@@ -59,10 +52,6 @@ public class MappingServiceImpl implements MappingService {
             return;
         }
         var profile = (MapperProfile<E, D>) getProfile(entity.getClass(), dto.getClass());
-        if (profile == null) {
-            throw new IllegalArgumentException(
-                "No profile found for entity class: " + entity.getClass());
-        }
         profile.mapToEntity(dto, entity);
     }
 

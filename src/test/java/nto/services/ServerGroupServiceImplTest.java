@@ -48,6 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -83,9 +84,9 @@ class ServerGroupServiceImplTest {
     @BeforeEach
     void setUpSecurityContext() {
         Authentication authentication = mock(Authentication.class);
-        when(authentication.getName()).thenReturn(TEST_USERNAME);
+        lenient().when(authentication.getName()).thenReturn(TEST_USERNAME);
         SecurityContext securityContext = mock(SecurityContext.class);
-        when(securityContext.getAuthentication()).thenReturn(authentication);
+        lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
         SecurityContextHolder.setContext(securityContext);
     }
 
@@ -118,12 +119,30 @@ class ServerGroupServiceImplTest {
     }
 
     @Test
+    void createGroupWithServersBulkShouldThrowWhenCurrentUserNotFound() {
+        BulkCreateServersGroupRequestDto requestDto = new BulkCreateServersGroupRequestDto(
+            "bulk-group", List.of()
+        );
+        when(userRepository.findByUsername(TEST_USERNAME)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class,
+            () -> groupService.createGroupWithServersBulk(requestDto));
+    }
+
+    @Test
     void getGroupByIdShouldThrowWhenGroupOwnedByAnotherUser() {
         ServerGroupEntity foreignGroup = group("ops", user("another"));
         foreignGroup.setId(10L);
         when(groupRepository.findById(10L)).thenReturn(Optional.of(foreignGroup));
 
         assertThrows(AccessDeniedException.class, () -> groupService.getGroupById(10L));
+    }
+
+    @Test
+    void getGroupByIdShouldThrowWhenGroupMissing() {
+        when(groupRepository.findById(10L)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> groupService.getGroupById(10L));
     }
 
     @Test
@@ -197,6 +216,46 @@ class ServerGroupServiceImplTest {
         assertTrue(server.getGroups().contains(group));
         assertTrue(group.getServers().contains(server));
         verify(serverRepository).save(server);
+    }
+
+    @Test
+    void addServerToGroupShouldThrowWhenServerMissing() {
+        ServerGroupEntity group = group("ops", user(TEST_USERNAME));
+        group.setId(100L);
+
+        when(groupRepository.findById(100L)).thenReturn(Optional.of(group));
+        when(serverRepository.findById(200L)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> groupService.addServerToGroup(100L, 200L));
+        verify(serverRepository, never()).save(any(ServerEntity.class));
+    }
+
+    @Test
+    void addServerToGroupShouldThrowWhenServerHasNoOwnedGroup() {
+        ServerGroupEntity group = group("ops", user(TEST_USERNAME));
+        group.setId(100L);
+        ServerEntity server = serverWithGroupWithoutOwner();
+        server.setId(200L);
+
+        when(groupRepository.findById(100L)).thenReturn(Optional.of(group));
+        when(serverRepository.findById(200L)).thenReturn(Optional.of(server));
+
+        assertThrows(AccessDeniedException.class, () -> groupService.addServerToGroup(100L, 200L));
+        verify(serverRepository, never()).save(any(ServerEntity.class));
+    }
+
+    @Test
+    void addServerToGroupShouldThrowWhenServerBelongsToAnotherUser() {
+        ServerGroupEntity group = group("ops", user(TEST_USERNAME));
+        group.setId(100L);
+        ServerEntity server = serverOwnedBy("other");
+        server.setId(200L);
+
+        when(groupRepository.findById(100L)).thenReturn(Optional.of(group));
+        when(serverRepository.findById(200L)).thenReturn(Optional.of(server));
+
+        assertThrows(AccessDeniedException.class, () -> groupService.addServerToGroup(100L, 200L));
+        verify(serverRepository, never()).save(any(ServerEntity.class));
     }
 
     @Test
@@ -302,6 +361,30 @@ class ServerGroupServiceImplTest {
         verify(serverService).createServer(firstServerRequest);
         verify(serverService).createServer(secondServerRequest);
         verify(serverRepository, times(2)).save(any(ServerEntity.class));
+    }
+
+    @Test
+    void createGroupWithServersBulkShouldThrowWhenCreatedServerMissingInRepository() {
+        UserEntity owner = user(TEST_USERNAME);
+        ServerDto serverRequest = new ServerDto(null, "srv-1", "10.0.0.1", 22, "root", "pw1");
+        BulkCreateServersGroupRequestDto requestDto = new BulkCreateServersGroupRequestDto(
+            "bulk-group", List.of(serverRequest)
+        );
+        ServerGroupEntity savedGroup = group("bulk-group", owner);
+        savedGroup.setId(100L);
+        ServerDto createdServer = new ServerDto(10L, "srv-1", "10.0.0.1", 22, "root", "pw1");
+
+        when(userRepository.findByUsername(TEST_USERNAME)).thenReturn(Optional.of(owner));
+        when(groupRepository.findByOwnerUsernameAndName(TEST_USERNAME, "bulk-group"))
+            .thenReturn(Optional.empty());
+        when(groupRepository.save(any(ServerGroupEntity.class))).thenReturn(savedGroup);
+        when(serverService.createServer(serverRequest)).thenReturn(createdServer);
+        when(serverRepository.findById(10L)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class,
+            () -> groupService.createGroupWithServersBulk(requestDto));
+
+        verify(mappingService, never()).mapToDto(any(ServerGroupEntity.class), eq(ServerGroupDto.class));
     }
 
     @Test
@@ -500,6 +583,22 @@ class ServerGroupServiceImplTest {
 
     private ServerEntity serverOwnedBy(String username) {
         ServerGroupEntity ownerGroup = group("owner", user(username));
+        ServerEntity entity = ServerEntity.builder()
+            .hostname("srv")
+            .ipAddress("10.0.0.1")
+            .port(22)
+            .password("pw")
+            .groups(new HashSet<>())
+            .build();
+        entity.getGroups().add(ownerGroup);
+        return entity;
+    }
+
+    private ServerEntity serverWithGroupWithoutOwner() {
+        ServerGroupEntity ownerGroup = ServerGroupEntity.builder()
+            .name("owner")
+            .servers(new HashSet<>())
+            .build();
         ServerEntity entity = ServerEntity.builder()
             .hostname("srv")
             .ipAddress("10.0.0.1")
