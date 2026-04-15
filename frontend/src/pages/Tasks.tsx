@@ -1,35 +1,103 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { List, CheckCircle, XCircle, Clock, Loader } from 'lucide-react';
 import { tasksApi } from '../services/api';
 import type { TaskDto } from '../types/api';
 import { PageHeader } from '../components/PageHeader';
+import { AsyncState } from '../components/AsyncState';
 import { useToast } from '../contexts/ToastContext';
+import { useAdaptivePolling } from '../hooks/useAdaptivePolling';
+
+type TaskFilterStatus = 'ALL' | 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+type TaskSortOrder = 'newest' | 'oldest';
+
+function normalizeStatus(value: string | null): TaskFilterStatus {
+  if (!value) return 'ALL';
+
+  const allowed: TaskFilterStatus[] = ['ALL', 'PENDING', 'RUNNING', 'SUCCESS', 'FAILED', 'CANCELLED'];
+  return allowed.includes(value as TaskFilterStatus) ? (value as TaskFilterStatus) : 'ALL';
+}
 
 export function Tasks() {
   const [tasks, setTasks] = useState<TaskDto[]>([]);
-  const [statusFilter, setStatusFilter] = useState<'ALL' | TaskDto['status']>('ALL');
-  const [search, setSearch] = useState('');
+  const [listError, setListError] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { showToast } = useToast();
 
-  const fetchTasks = useCallback(async () => {
-    try {
-      const params =
-        statusFilter === 'ALL' || !statusFilter ? undefined : { status: statusFilter };
-      const response = await tasksApi.getAll(params);
-      setTasks(response.data.sort((a, b) => (b.id || 0) - (a.id || 0)));
-    } catch (error) {
-      console.error('Failed to fetch tasks:', error);
-      showToast('Failed to load tasks.', 'error');
-    }
-  }, [showToast, statusFilter]);
+  const statusFilter = normalizeStatus(searchParams.get('status'));
+  const search = searchParams.get('q') ?? '';
+  const sortOrder: TaskSortOrder = searchParams.get('sort') === 'oldest' ? 'oldest' : 'newest';
 
-  useEffect(() => {
-    fetchTasks();
-    const interval = setInterval(fetchTasks, 5000);
-    return () => clearInterval(interval);
-  }, [fetchTasks]);
+  const setQueryParam = useCallback(
+    (name: string, value: string | null) => {
+      const nextParams = new URLSearchParams(searchParams);
+      if (!value || !value.trim()) {
+        nextParams.delete(name);
+      } else {
+        nextParams.set(name, value);
+      }
+      setSearchParams(nextParams, { replace: true });
+    },
+    [searchParams, setSearchParams]
+  );
+
+  const clearFilters = useCallback(() => {
+    setSearchParams(new URLSearchParams(), { replace: true });
+  }, [setSearchParams]);
+
+  const fetchTasks = useCallback(async () => {
+    const params = statusFilter === 'ALL' ? undefined : { status: statusFilter };
+    const response = await tasksApi.getAll(params);
+    const sortedTasks = [...response.data].sort((a, b) => {
+      const left = a.id ?? 0;
+      const right = b.id ?? 0;
+      return sortOrder === 'newest' ? right - left : left - right;
+    });
+    setTasks(sortedTasks);
+  }, [sortOrder, statusFilter]);
+
+  const { lastSuccessAt, consecutiveErrors, isPaused } = useAdaptivePolling(fetchTasks, {
+    enabled: true,
+    baseIntervalMs: 5000,
+    maxIntervalMs: 30000,
+    runImmediately: true,
+    onSuccess: () => setListError(null),
+    onError: (error, attempt) => {
+      console.error('Failed to fetch tasks:', error);
+      setListError('Failed to load tasks. Auto-retry is enabled.');
+      if (attempt === 1) {
+        showToast('Failed to load tasks. Retrying with backoff.', 'error');
+      }
+    },
+  });
+
+  const retryNow = useCallback(async () => {
+    try {
+      await fetchTasks();
+      setListError(null);
+    } catch (error) {
+      console.error('Retry failed:', error);
+      setListError('Failed to load tasks. Auto-retry is enabled.');
+      showToast('Retry failed. Polling continues.', 'error');
+    }
+  }, [fetchTasks, showToast]);
+
+  const filteredTasks = useMemo(
+    () =>
+      tasks.filter((task) => {
+        if (!search.trim()) return true;
+        const term = search.trim();
+        const serverId = task.serverId?.toString() ?? '';
+        const scriptId = task.scriptId?.toString() ?? '';
+        return serverId.includes(term) || scriptId.includes(term);
+      }),
+    [tasks, search]
+  );
+
+  const hasActiveFilters =
+    statusFilter !== 'ALL' || search.trim().length > 0 || sortOrder !== 'newest';
+  const isInitialLoading = !lastSuccessAt && !listError && tasks.length === 0;
 
   const getStatusIcon = (status: TaskDto['status']) => {
     switch (status) {
@@ -76,35 +144,26 @@ export function Tasks() {
     }
   };
 
-  const filteredTasks = tasks.filter((task) => {
-    if (!search.trim()) return true;
-    const term = search.trim();
-    const serverId = task.serverId?.toString() ?? '';
-    const scriptId = task.scriptId?.toString() ?? '';
-    return serverId.includes(term) || scriptId.includes(term);
-  });
-
-  const hasActiveFilters = statusFilter !== 'ALL' || search.trim().length > 0;
-  const clearFilters = () => {
-    setStatusFilter('ALL');
-    setSearch('');
-  };
+  const pollingStateText = isPaused
+    ? 'Polling paused while this tab is hidden.'
+    : consecutiveErrors > 0
+    ? `Retrying with exponential backoff (attempt ${consecutiveErrors}).`
+    : 'Auto-refresh every 5 seconds.';
 
   return (
     <div className="space-y-6">
       <PageHeader title="$ tasks" subtitle="Execution history" />
 
       <div className="bg-gray-900 border border-green-900 rounded-lg p-4 animate-page-enter">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-green-500 font-mono text-sm mb-2">
-              Status
-            </label>
+            <label className="block text-green-500 font-mono text-sm mb-2">Status</label>
             <select
               value={statusFilter}
-              onChange={(e) =>
-                setStatusFilter(e.target.value as 'ALL' | TaskDto['status'])
-              }
+              onChange={(event) => {
+                const nextStatus = event.target.value as TaskFilterStatus;
+                setQueryParam('status', nextStatus === 'ALL' ? null : nextStatus);
+              }}
               className="w-full bg-black border border-green-900 rounded px-3 py-2 text-green-400 font-mono focus:outline-none focus:border-green-500"
             >
               <option value="ALL">ALL</option>
@@ -115,6 +174,20 @@ export function Tasks() {
               <option value="CANCELLED">CANCELLED</option>
             </select>
           </div>
+          <div>
+            <label className="block text-green-500 font-mono text-sm mb-2">Sort</label>
+            <select
+              value={sortOrder}
+              onChange={(event) => {
+                const nextSort = event.target.value as TaskSortOrder;
+                setQueryParam('sort', nextSort === 'newest' ? null : nextSort);
+              }}
+              className="w-full bg-black border border-green-900 rounded px-3 py-2 text-green-400 font-mono focus:outline-none focus:border-green-500"
+            >
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </div>
           <div className="md:col-span-2">
             <label className="block text-green-500 font-mono text-sm mb-2">
               Search (Server ID or Script ID)
@@ -122,18 +195,22 @@ export function Tasks() {
             <input
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(event) => setQueryParam('q', event.target.value)}
               placeholder="e.g. 12"
               className="w-full bg-black border border-green-900 rounded px-3 py-2 text-green-400 font-mono focus:outline-none focus:border-green-500"
             />
           </div>
         </div>
-        <div className="flex justify-end mt-4">
+        <div className="flex items-center justify-between mt-4 gap-3 flex-wrap">
+          <p className="text-green-700 text-xs font-mono">
+            {pollingStateText}{' '}
+            {lastSuccessAt && <>Last updated: {new Date(lastSuccessAt).toLocaleTimeString()}.</>}
+          </p>
           <button
             type="button"
             onClick={clearFilters}
             disabled={!hasActiveFilters}
-            className={`px-3 py-2 rounded font-mono text-sm transition-colors ${
+            className={`px-3 py-2 rounded font-mono text-sm transition-colors btn-operator ${
               hasActiveFilters
                 ? 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                 : 'bg-gray-900 text-gray-600 cursor-not-allowed'
@@ -144,62 +221,82 @@ export function Tasks() {
         </div>
       </div>
 
-      <div className="space-y-3">
-        {filteredTasks.map((task, index) => (
-          <div
-            key={task.id}
-            onClick={() => navigate(`/tasks/${task.id}`)}
-            className={`bg-gray-900 border rounded-lg p-4 cursor-pointer hover:border-green-500 transition-colors ${getStatusColor(
-              task.status
-            )} animate-card-stagger transition-transform hover:-translate-y-0.5`}
-            style={{ animationDelay: `${Math.min(index, 10) * 45}ms` }}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                {getStatusIcon(task.status)}
-                <div>
-                  <div className="flex items-center space-x-3">
-                    <span className="text-green-400 font-mono font-bold">
-                      Task #{task.id}
-                    </span>
-                    <span className={`font-mono text-sm ${getStatusText(task.status)}`}>
-                      {task.status}
-                    </span>
-                  </div>
-                  <div className="text-green-700 text-sm font-mono mt-1">
-                    Server ID: {task.serverId} | Script ID: {task.scriptId}
+      {isInitialLoading && (
+        <AsyncState
+          kind="loading"
+          title="Loading tasks"
+          description="Fetching execution history from the backend."
+        />
+      )}
+
+      {!isInitialLoading && listError && tasks.length === 0 && (
+        <AsyncState
+          kind="error"
+          title="Task feed unavailable"
+          description={listError}
+          actionLabel="Retry now"
+          onAction={retryNow}
+        />
+      )}
+
+      {!isInitialLoading && filteredTasks.length > 0 && (
+        <div className="space-y-3">
+          {filteredTasks.map((task, index) => (
+            <div
+              key={task.id}
+              onClick={() => navigate(`/tasks/${task.id}`)}
+              className={`bg-gray-900 border rounded-lg p-4 cursor-pointer hover:border-green-500 ${getStatusColor(
+                task.status
+              )} animate-card-stagger card-interactive`}
+              style={{ animationDelay: `${Math.min(index, 10) * 45}ms` }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  {getStatusIcon(task.status)}
+                  <div>
+                    <div className="flex items-center space-x-3">
+                      <span className="text-green-400 font-mono font-bold">Task #{task.id}</span>
+                      <span className={`font-mono text-sm ${getStatusText(task.status)}`}>
+                        {task.status}
+                      </span>
+                    </div>
+                    <div className="text-green-700 text-sm font-mono mt-1">
+                      Server ID: {task.serverId} | Script ID: {task.scriptId}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="text-right">
-                <div className="text-green-600 text-sm font-mono">
-                  {task.startedAt
-                    ? new Date(task.startedAt).toLocaleString()
-                    : 'Not started'}
-                </div>
-                {task.finishedAt && (
-                  <div className="text-green-700 text-xs font-mono mt-1">
-                    Finished: {new Date(task.finishedAt).toLocaleTimeString()}
+                <div className="text-right">
+                  <div className="text-green-600 text-sm font-mono">
+                    {task.startedAt ? new Date(task.startedAt).toLocaleString() : 'Not started'}
                   </div>
-                )}
+                  {task.finishedAt && (
+                    <div className="text-green-700 text-xs font-mono mt-1">
+                      Finished: {new Date(task.finishedAt).toLocaleTimeString()}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
-
-      {filteredTasks.length === 0 && hasActiveFilters && (
-        <div className="text-center py-12">
-          <List className="w-16 h-16 text-green-900 mx-auto mb-4" />
-          <p className="text-green-700 font-mono">No tasks match filters</p>
+          ))}
         </div>
       )}
 
-      {tasks.length === 0 && !hasActiveFilters && (
-        <div className="text-center py-12">
-          <List className="w-16 h-16 text-green-900 mx-auto mb-4" />
-          <p className="text-green-700 font-mono">No tasks executed yet</p>
-        </div>
+      {!isInitialLoading && filteredTasks.length === 0 && hasActiveFilters && (
+        <AsyncState
+          kind="empty"
+          title="No tasks match current filters"
+          description="Try a different status, search term, or sort order."
+          actionLabel="Reset filters"
+          onAction={clearFilters}
+        />
+      )}
+
+      {!isInitialLoading && !hasActiveFilters && tasks.length === 0 && (
+        <AsyncState
+          kind="empty"
+          title="No tasks executed yet"
+          description="Run a script on a server or group to populate execution history."
+        />
       )}
     </div>
   );

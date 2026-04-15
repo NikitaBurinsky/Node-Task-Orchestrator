@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --motion-fast: 160ms;
+  --motion-normal: 280ms;
+  --motion-slow: 420ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 @keyframes page-enter {
   from {
     opacity: 0;
@@ -50,20 +58,50 @@
 }
 
 .animate-page-enter {
-  animation: page-enter 300ms ease-out both;
+  animation: page-enter var(--motion-normal) var(--ease-standard) both;
 }
 
 .animate-card-stagger {
-  animation: card-stagger 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: card-stagger var(--motion-slow) var(--ease-emphasized) both;
 }
 
 .animate-toast-in {
-  animation: toast-in 240ms ease-out both;
+  animation: toast-in var(--motion-fast) var(--ease-standard) both;
 }
 
 .animate-status-pop {
-  animation: status-pop 300ms ease-out both;
+  animation: status-pop var(--motion-normal) var(--ease-standard) both;
   transform-origin: center;
+}
+
+.card-interactive {
+  transition:
+    transform var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.card-interactive:hover {
+  transform: translateY(-2px);
+}
+
+.card-interactive:focus-within {
+  box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.45);
+}
+
+.btn-operator {
+  transition:
+    transform var(--motion-fast) var(--ease-standard),
+    filter var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard);
+}
+
+.btn-operator:hover {
+  filter: brightness(1.04);
+}
+
+.btn-operator:active {
+  transform: translateY(1px);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -72,5 +110,15 @@
   .animate-toast-in,
   .animate-status-pop {
     animation: none !important;
+  }
+
+  .card-interactive,
+  .btn-operator {
+    transition: none !important;
+  }
+
+  .card-interactive:hover,
+  .btn-operator:active {
+    transform: none !important;
   }
 }

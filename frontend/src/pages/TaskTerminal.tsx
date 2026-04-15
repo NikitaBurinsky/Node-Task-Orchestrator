@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Terminal, CheckCircle, XCircle, Clock, Loader } from 'lucide-react';
 import { tasksApi, serversApi, scriptsApi } from '../services/api';
 import type { TaskDto, ServerDto, ScriptDto } from '../types/api';
 import { PageHeader } from '../components/PageHeader';
+import { AsyncState } from '../components/AsyncState';
 import { useSafeBack } from '../hooks/useSafeBack';
+import { useAdaptivePolling } from '../hooks/useAdaptivePolling';
 
 export function TaskTerminal() {
   const { id } = useParams<{ id: string }>();
@@ -17,32 +19,32 @@ export function TaskTerminal() {
   const fetchTask = useCallback(async () => {
     if (!id) return;
 
-    try {
-      const response = await tasksApi.getById(parseInt(id, 10));
-      const taskData = response.data;
-      setTask(taskData);
-      setError(null);
+    const response = await tasksApi.getById(parseInt(id, 10));
+    const taskData = response.data;
+    setTask(taskData);
 
-      if (taskData.serverId && taskData.serverId !== server?.id) {
-        const serverRes = await serversApi.getById(taskData.serverId);
-        setServer(serverRes.data);
-      }
+    if (taskData.serverId && taskData.serverId !== server?.id) {
+      const serverRes = await serversApi.getById(taskData.serverId);
+      setServer(serverRes.data);
+    }
 
-      if (taskData.scriptId && taskData.scriptId !== script?.id) {
-        const scriptRes = await scriptsApi.getById(taskData.scriptId);
-        setScript(scriptRes.data);
-      }
-    } catch (fetchError) {
-      console.error('Failed to fetch task:', fetchError);
-      setError('Failed to load task details.');
+    if (taskData.scriptId && taskData.scriptId !== script?.id) {
+      const scriptRes = await scriptsApi.getById(taskData.scriptId);
+      setScript(scriptRes.data);
     }
   }, [id, script?.id, server?.id]);
 
-  useEffect(() => {
-    fetchTask();
-    const interval = setInterval(fetchTask, 2000);
-    return () => clearInterval(interval);
-  }, [fetchTask]);
+  const { lastSuccessAt, consecutiveErrors, isPaused } = useAdaptivePolling(fetchTask, {
+    enabled: Boolean(id),
+    baseIntervalMs: 2000,
+    maxIntervalMs: 12000,
+    runImmediately: true,
+    onSuccess: () => setError(null),
+    onError: (fetchError) => {
+      console.error('Failed to fetch task:', fetchError);
+      setError('Failed to load task details. Auto-retry is enabled.');
+    },
+  });
 
   const getStatusIcon = () => {
     switch (task?.status) {
@@ -76,9 +78,11 @@ export function TaskTerminal() {
 
   if (!task && !error) {
     return (
-      <div className="text-center py-12">
-        <div className="text-green-500 font-mono">Loading task...</div>
-      </div>
+      <AsyncState
+        kind="loading"
+        title="Loading task terminal"
+        description="Fetching output and execution metadata."
+      />
     );
   }
 
@@ -86,9 +90,13 @@ export function TaskTerminal() {
     return (
       <div className="space-y-4">
         <PageHeader title="$ task" subtitle="Execution details" onBack={goBack} />
-        <div className="border border-red-800 bg-red-950 text-red-300 px-4 py-3 rounded font-mono text-sm">
-          {error}
-        </div>
+        <AsyncState
+          kind="error"
+          title="Task details unavailable"
+          description={error}
+          actionLabel="Back to tasks"
+          onAction={goBack}
+        />
       </div>
     );
   }
@@ -101,6 +109,17 @@ export function TaskTerminal() {
         onBack={goBack}
         currentLabel={task?.id ? `Task #${task.id}` : 'Task'}
       />
+
+      <div className="bg-gray-900 border border-green-900 rounded-lg px-4 py-3">
+        <p className="text-xs font-mono text-green-700">
+          {isPaused
+            ? 'Live updates paused while tab is hidden.'
+            : consecutiveErrors > 0
+            ? `Connection unstable, retrying (attempt ${consecutiveErrors}).`
+            : 'Live refresh every 2 seconds.'}{' '}
+          {lastSuccessAt && <>Last updated: {new Date(lastSuccessAt).toLocaleTimeString()}.</>}
+        </p>
+      </div>
 
       {error && (
         <div className="border border-red-800 bg-red-950 text-red-300 px-4 py-3 rounded font-mono text-sm">

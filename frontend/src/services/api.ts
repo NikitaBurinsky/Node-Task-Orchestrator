@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 //import { setupMockAdapter } from './mockAdapter';
 import type {
   ServerDto,
@@ -34,6 +35,8 @@ const refreshApi = axios.create({
 let accessToken: string | null = null;
 let authFailureHandler: (() => void) | null = null;
 
+type RetriableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
+
 export const setAccessToken = (token: string | null) => {
   accessToken = token;
 };
@@ -55,8 +58,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
-    const status = error.response?.status;
+    const axiosError = error as AxiosError;
+    const originalRequest = axiosError.config as RetriableRequestConfig | undefined;
+    const status = axiosError.response?.status;
 
     const requestUrl = originalRequest?.url ?? '';
     const isAuthRequest =
@@ -65,8 +69,8 @@ api.interceptors.response.use(
       requestUrl.includes('/auth/refresh') ||
       requestUrl.includes('/auth/logout');
 
-    if (status === 401 && originalRequest && !isAuthRequest && !(originalRequest as any)._retry) {
-      (originalRequest as any)._retry = true;
+    if (status === 401 && originalRequest && !isAuthRequest && !originalRequest._retry) {
+      originalRequest._retry = true;
       try {
         const response = await refreshApi.post<AuthResponseDto>('/auth/refresh');
         const newToken = response.data.accessToken;

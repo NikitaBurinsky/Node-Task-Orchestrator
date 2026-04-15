@@ -11,8 +11,8 @@ export function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError('');
     setLoading(true);
 
@@ -40,13 +40,11 @@ export function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-green-500 font-mono text-sm mb-2">
-                $ username
-              </label>
+              <label className="block text-green-500 font-mono text-sm mb-2">$ username</label>
               <input
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(event) => setUsername(event.target.value)}
                 className="w-full bg-black border border-green-900 rounded px-4 py-2 text-green-400 font-mono focus:outline-none focus:border-green-500 transition-colors"
                 placeholder="root"
                 required
@@ -54,15 +52,13 @@ export function Login() {
             </div>
 
             <div>
-              <label className="block text-green-500 font-mono text-sm mb-2">
-                $ password
-              </label>
+              <label className="block text-green-500 font-mono text-sm mb-2">$ password</label>
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(event) => setPassword(event.target.value)}
                 className="w-full bg-black border border-green-900 rounded px-4 py-2 text-green-400 font-mono focus:outline-none focus:border-green-500 transition-colors"
-                placeholder="••••••••"
+                placeholder="********"
                 required
               />
             </div>
@@ -76,20 +72,21 @@ export function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-green-900 text-green-300 font-mono py-3 rounded hover:bg-green-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-green-900 text-green-300 font-mono py-3 rounded hover:bg-green-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed btn-operator"
             >
               {loading ? '> authenticating...' : '> login'}
             </button>
           </form>
 
-            <div className="mt-6 text-center space-y-2">
-                <p className="text-green-700 text-xs font-mono">
-                    Welcome
-                </p>
-                <Link to="/register" className="block text-green-700 text-xs font-mono hover:text-green-500 transition-colors">
-                    [ New here? Create an account ]
-                </Link>
-            </div>
+          <div className="mt-6 text-center space-y-2">
+            <p className="text-green-700 text-xs font-mono">Welcome</p>
+            <Link
+              to="/register"
+              className="block text-green-700 text-xs font-mono hover:text-green-500 transition-colors"
+            >
+              [ New here? Create an account ]
+            </Link>
+          </div>
         </div>
       </div>
     </div>

@@ -4,8 +4,12 @@ import { Plus, Activity, Play, X, Lock, CheckCircle2, XCircle } from 'lucide-rea
 import { groupsApi, serversApi, scriptsApi } from '../services/api';
 import type { ServerGroupDto, ServerDto, ScriptDto, PingResultDto } from '../types/api';
 import { PageHeader } from '../components/PageHeader';
+import { AsyncState } from '../components/AsyncState';
 import { useSafeBack } from '../hooks/useSafeBack';
 import { useToast } from '../contexts/ToastContext';
+import { useConfirmDialog } from '../contexts/ConfirmDialogContext';
+
+type PingUiStatus = 'online' | 'offline' | 'unknown';
 
 export function GroupDetail() {
   const { id } = useParams<{ id: string }>();
@@ -20,17 +24,20 @@ export function GroupDetail() {
   const [selectedScript, setSelectedScript] = useState<number | null>(null);
   const [pingResults, setPingResults] = useState<PingResultDto>({});
   const [lastPingAt, setLastPingAt] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [pinging, setPinging] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [updatingMembership, setUpdatingMembership] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
+  const { confirm } = useConfirmDialog();
 
   const groupId = id ? parseInt(id, 10) : null;
 
   const fetchData = useCallback(async () => {
     if (!groupId) return;
 
+    setIsLoading(true);
     try {
       const [groupRes, serversRes, scriptsRes] = await Promise.all([
         groupsApi.getById(groupId),
@@ -46,6 +53,8 @@ export function GroupDetail() {
     } catch (fetchError) {
       console.error('Failed to fetch data:', fetchError);
       setError('Failed to load group data.');
+    } finally {
+      setIsLoading(false);
     }
   }, [groupId]);
 
@@ -74,12 +83,24 @@ export function GroupDetail() {
     }
   };
 
-  const handleRemoveServer = async (serverId: number) => {
-    if (!groupId || updatingMembership) return;
+  const handleRemoveServer = async (server: ServerDto) => {
+    if (!groupId || updatingMembership || !server.id) return;
+
+    const confirmed = await confirm({
+      title: 'Remove server from group?',
+      description: `${server.hostname} will be detached from this group.`,
+      confirmText: 'Remove',
+      cancelText: 'Keep',
+      tone: 'danger',
+    });
+
+    if (!confirmed) {
+      return;
+    }
 
     setUpdatingMembership(true);
     try {
-      await groupsApi.removeServer(groupId, serverId);
+      await groupsApi.removeServer(groupId, server.id);
       setError(null);
       showToast('Server removed from group.', 'success');
       await fetchData();
@@ -101,10 +122,12 @@ export function GroupDetail() {
       setPingResults(response.data);
       setLastPingAt(new Date().toISOString());
       setError(null);
+
       const onlineCount = groupServers.filter(
         (server) => response.data[(server.id ?? 0).toString()] === true
       ).length;
       const offlineCount = groupServers.length - onlineCount;
+
       showToast(
         `Ping completed. Online: ${onlineCount}, Offline: ${offlineCount}.`,
         offlineCount > 0 ? 'info' : 'success'
@@ -141,35 +164,61 @@ export function GroupDetail() {
   };
 
   const availableServers = useMemo(
-    () => allServers.filter((server) => !groupServers.some((groupServer) => groupServer.id === server.id)),
+    () =>
+      allServers.filter((server) => !groupServers.some((groupServer) => groupServer.id === server.id)),
     [allServers, groupServers]
   );
-
-  type PingUiStatus = 'online' | 'offline' | 'unknown';
-
-  const getPingStatus = (serverId: number) => {
-    const key = serverId.toString();
-    if (!(key in pingResults)) return 'unknown' as PingUiStatus;
-    return pingResults[key] ? ('online' as PingUiStatus) : ('offline' as PingUiStatus);
-  };
 
   const pingStatusRows = useMemo(
     () =>
       groupServers.map((server) => ({
         server,
-        status: getPingStatus(server.id!),
+        status:
+          pingResults[server.id!.toString()] === undefined
+            ? ('unknown' as PingUiStatus)
+            : pingResults[server.id!.toString()]
+            ? ('online' as PingUiStatus)
+            : ('offline' as PingUiStatus),
       })),
     [groupServers, pingResults]
+  );
+
+  const statusByServerId = useMemo(
+    () =>
+      pingStatusRows.reduce<Record<number, PingUiStatus>>((acc, row) => {
+        if (row.server.id !== undefined) {
+          acc[row.server.id] = row.status;
+        }
+        return acc;
+      }, {}),
+    [pingStatusRows]
   );
 
   const onlineServers = pingStatusRows.filter((row) => row.status === 'online');
   const offlineServers = pingStatusRows.filter((row) => row.status === 'offline');
   const unknownServers = pingStatusRows.filter((row) => row.status === 'unknown');
 
+  if (isLoading) {
+    return (
+      <AsyncState
+        kind="loading"
+        title="Loading group details"
+        description="Fetching servers, scripts, and membership data."
+      />
+    );
+  }
+
   if (!group) {
     return (
-      <div className="text-center py-12">
-        <div className="text-green-500 font-mono">Loading...</div>
+      <div className="space-y-4">
+        <PageHeader title="$ group" subtitle="Details" onBack={goBack} />
+        <AsyncState
+          kind="error"
+          title="Group unavailable"
+          description={error ?? 'Unable to open this group.'}
+          actionLabel="Back to groups"
+          onAction={goBack}
+        />
       </div>
     );
   }
@@ -202,7 +251,7 @@ export function GroupDetail() {
       <div className="flex flex-wrap gap-3">
         <button
           onClick={() => setShowAddServer(true)}
-          className="flex items-center space-x-2 bg-green-900 text-green-300 px-4 py-2 rounded font-mono hover:bg-green-800 transition-colors"
+          className="flex items-center space-x-2 bg-green-900 text-green-300 px-4 py-2 rounded font-mono hover:bg-green-800 transition-colors btn-operator"
         >
           <Plus className="w-4 h-4" />
           <span>Add Server</span>
@@ -210,7 +259,7 @@ export function GroupDetail() {
         <button
           onClick={handlePingAll}
           disabled={pinging || groupServers.length === 0}
-          className="flex items-center space-x-2 bg-blue-900 text-blue-300 px-4 py-2 rounded font-mono hover:bg-blue-800 transition-colors disabled:opacity-50"
+          className="flex items-center space-x-2 bg-blue-900 text-blue-300 px-4 py-2 rounded font-mono hover:bg-blue-800 transition-colors disabled:opacity-50 btn-operator"
         >
           <Activity className="w-4 h-4" />
           <span>{pinging ? 'Pinging...' : 'Ping All'}</span>
@@ -218,7 +267,7 @@ export function GroupDetail() {
         <button
           onClick={() => setShowExecute(true)}
           disabled={groupServers.length === 0}
-          className="flex items-center space-x-2 bg-yellow-900 text-yellow-300 px-4 py-2 rounded font-mono hover:bg-yellow-800 transition-colors disabled:opacity-50"
+          className="flex items-center space-x-2 bg-yellow-900 text-yellow-300 px-4 py-2 rounded font-mono hover:bg-yellow-800 transition-colors disabled:opacity-50 btn-operator"
         >
           <Play className="w-4 h-4" />
           <span>Execute Script</span>
@@ -301,7 +350,7 @@ export function GroupDetail() {
       )}
 
       {showAddServer && (
-        <div className="bg-gray-900 border border-green-900 rounded-lg p-6">
+        <div className="bg-gray-900 border border-green-900 rounded-lg p-6 animate-page-enter">
           <h2 className="text-lg font-bold text-green-500 font-mono mb-4">Add Server to Group</h2>
           {availableServers.length > 0 ? (
             <div className="space-y-2">
@@ -317,7 +366,7 @@ export function GroupDetail() {
                   <button
                     onClick={() => handleAddServer(server.id!)}
                     disabled={updatingMembership}
-                    className="bg-green-900 text-green-300 px-3 py-1 rounded text-sm font-mono hover:bg-green-800 disabled:opacity-50"
+                    className="bg-green-900 text-green-300 px-3 py-1 rounded text-sm font-mono hover:bg-green-800 disabled:opacity-50 btn-operator"
                   >
                     Add
                   </button>
@@ -329,7 +378,7 @@ export function GroupDetail() {
           )}
           <button
             onClick={() => setShowAddServer(false)}
-            className="mt-4 bg-gray-800 text-gray-400 px-4 py-2 rounded font-mono hover:bg-gray-700"
+            className="mt-4 bg-gray-800 text-gray-400 px-4 py-2 rounded font-mono hover:bg-gray-700 btn-operator"
           >
             Cancel
           </button>
@@ -337,14 +386,14 @@ export function GroupDetail() {
       )}
 
       {showExecute && (
-        <div className="bg-gray-900 border border-green-900 rounded-lg p-6">
+        <div className="bg-gray-900 border border-green-900 rounded-lg p-6 animate-page-enter">
           <h2 className="text-lg font-bold text-green-500 font-mono mb-4">Execute on All Servers</h2>
           <div className="space-y-2 mb-4">
             {scripts.map((script) => (
               <div
                 key={script.id}
                 onClick={() => setSelectedScript(script.id!)}
-                className={`cursor-pointer bg-black border rounded p-3 font-mono transition-colors ${
+                className={`cursor-pointer bg-black border rounded p-3 font-mono transition-colors card-interactive ${
                   selectedScript === script.id
                     ? 'border-green-500 text-green-400'
                     : 'border-green-900 text-green-600 hover:border-green-700'
@@ -358,7 +407,7 @@ export function GroupDetail() {
             <button
               onClick={handleExecute}
               disabled={!selectedScript || executing}
-              className="bg-yellow-900 text-yellow-300 px-4 py-2 rounded font-mono hover:bg-yellow-800 disabled:opacity-50"
+              className="bg-yellow-900 text-yellow-300 px-4 py-2 rounded font-mono hover:bg-yellow-800 disabled:opacity-50 btn-operator"
             >
               {executing ? 'Executing...' : 'Execute'}
             </button>
@@ -367,7 +416,7 @@ export function GroupDetail() {
                 setShowExecute(false);
                 setSelectedScript(null);
               }}
-              className="bg-gray-800 text-gray-400 px-4 py-2 rounded font-mono hover:bg-gray-700"
+              className="bg-gray-800 text-gray-400 px-4 py-2 rounded font-mono hover:bg-gray-700 btn-operator"
             >
               Cancel
             </button>
@@ -375,73 +424,77 @@ export function GroupDetail() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {groupServers.map((server, index) => {
-          const status = getPingStatus(server.id!);
-          const statusLabel =
-            status === 'online' ? 'ONLINE' : status === 'offline' ? 'OFFLINE' : 'UNKNOWN';
-          const statusClass =
-            status === 'online'
-              ? 'border-green-700 text-green-400 bg-green-950/40'
-              : status === 'offline'
-              ? 'border-red-700 text-red-400 bg-red-950/40'
-              : 'border-yellow-700 text-yellow-400 bg-yellow-950/30';
-          return (
-            <div
-              key={server.id}
-              className="bg-gray-900 border border-green-900 rounded-lg p-6 animate-card-stagger transition-transform hover:-translate-y-0.5"
-              style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="text-green-400 font-mono font-bold">{server.hostname}</h3>
-                  <p className="text-green-700 text-sm font-mono">{server.ipAddress}</p>
-                  <div
-                    className={`inline-flex mt-2 px-2 py-1 rounded border text-xs font-mono ${
-                      status !== 'unknown' ? 'animate-status-pop' : ''
-                    } ${statusClass}`}
+      {groupServers.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {groupServers.map((server, index) => {
+            const status = statusByServerId[server.id!] ?? 'unknown';
+            const statusLabel =
+              status === 'online' ? 'ONLINE' : status === 'offline' ? 'OFFLINE' : 'UNKNOWN';
+            const statusClass =
+              status === 'online'
+                ? 'border-green-700 text-green-400 bg-green-950/40'
+                : status === 'offline'
+                ? 'border-red-700 text-red-400 bg-red-950/40'
+                : 'border-yellow-700 text-yellow-400 bg-yellow-950/30';
+            return (
+              <div
+                key={server.id}
+                className="bg-gray-900 border border-green-900 rounded-lg p-6 animate-card-stagger card-interactive"
+                style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-green-400 font-mono font-bold">{server.hostname}</h3>
+                    <p className="text-green-700 text-sm font-mono">{server.ipAddress}</p>
+                    <div
+                      className={`inline-flex mt-2 px-2 py-1 rounded border text-xs font-mono ${
+                        status !== 'unknown' ? 'animate-status-pop' : ''
+                      } ${statusClass}`}
+                    >
+                      {statusLabel}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (!isDefaultGroup) {
+                        handleRemoveServer(server);
+                      }
+                    }}
+                    className={`transition-colors ${
+                      isDefaultGroup
+                        ? 'text-red-900 cursor-not-allowed'
+                        : 'text-red-500 hover:text-red-400'
+                    }`}
+                    disabled={isDefaultGroup || updatingMembership}
+                    title={isDefaultGroup ? 'Default group cannot remove servers' : 'Remove server'}
                   >
-                    {statusLabel}
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="space-y-2 text-sm font-mono">
+                  <div className="flex justify-between text-green-700">
+                    <span>SSH User:</span>
+                    <span className="text-green-500">{server.username}</span>
+                  </div>
+                  <div className="flex justify-between text-green-700">
+                    <span>Port:</span>
+                    <span className="text-green-500">{server.port}</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    if (!isDefaultGroup) {
-                      handleRemoveServer(server.id!);
-                    }
-                  }}
-                  className={`transition-colors ${
-                    isDefaultGroup
-                      ? 'text-red-900 cursor-not-allowed'
-                      : 'text-red-500 hover:text-red-400'
-                  }`}
-                  disabled={isDefaultGroup || updatingMembership}
-                  title={isDefaultGroup ? 'Default group cannot remove servers' : 'Remove server'}
-                >
-                  <X className="w-4 h-4" />
-                </button>
               </div>
-              <div className="space-y-2 text-sm font-mono">
-                <div className="flex justify-between text-green-700">
-                  <span>SSH User:</span>
-                  <span className="text-green-500">{server.username}</span>
-                </div>
-                <div className="flex justify-between text-green-700">
-                  <span>Port:</span>
-                  <span className="text-green-500">{server.port}</span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {groupServers.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-green-700 font-mono">
-            {isDefaultGroup ? 'Default group is empty' : 'No servers in this group'}
-          </p>
-        </div>
+        <AsyncState
+          kind="empty"
+          title={isDefaultGroup ? 'Default group is empty' : 'No servers in this group'}
+          description="Add servers to start pinging and executing scripts in this group."
+          actionLabel="Add Server"
+          onAction={() => setShowAddServer(true)}
+        />
       )}
     </div>
   );
