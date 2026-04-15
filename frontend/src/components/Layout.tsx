@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { Terminal, Server, Layers, FileCode, List, LogOut, Menu, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme, type AppTheme } from '../contexts/ThemeContext';
 import { CommandPalette } from './CommandPalette';
 
 function isEditableTarget(target: EventTarget | null) {
@@ -22,6 +23,7 @@ export function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const { theme, setTheme, options: themeOptions } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const goSequenceRef = useRef<{ active: boolean; timer: number | null }>({
@@ -172,13 +174,30 @@ export function Layout() {
                 })}
               </div>
             </div>
-            <button
-              onClick={logout}
-              className="hidden md:flex items-center space-x-2 px-3 py-2 rounded font-mono text-sm text-red-500 hover:bg-gray-800 transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Logout</span>
-            </button>
+            <div className="hidden md:flex items-center gap-3">
+              <label className="text-xs font-mono text-green-700" htmlFor="theme-select-desktop">
+                Theme
+              </label>
+              <select
+                id="theme-select-desktop"
+                value={theme}
+                onChange={(event) => setTheme(event.target.value as AppTheme)}
+                className="bg-black border border-green-900 rounded px-2 py-1.5 text-green-400 text-xs font-mono focus:outline-none focus:border-green-500"
+              >
+                {themeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={logout}
+                className="flex items-center space-x-2 px-3 py-2 rounded font-mono text-sm text-red-500 hover:bg-gray-800 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Logout</span>
+              </button>
+            </div>
             <button
               type="button"
               onClick={() => setMobileMenuOpen((open) => !open)}
@@ -196,6 +215,23 @@ export function Layout() {
                   const Icon = item.icon;
                   return renderNavItem(item.path, item.label, Icon, true);
                 })}
+              </div>
+              <div className="px-1">
+                <label className="block text-xs font-mono text-green-700 mb-2" htmlFor="theme-select-mobile">
+                  Theme
+                </label>
+                <select
+                  id="theme-select-mobile"
+                  value={theme}
+                  onChange={(event) => setTheme(event.target.value as AppTheme)}
+                  className="w-full bg-black border border-green-900 rounded px-3 py-2 text-green-400 text-sm font-mono focus:outline-none focus:border-green-500"
+                >
+                  {themeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <button
                 onClick={logout}
