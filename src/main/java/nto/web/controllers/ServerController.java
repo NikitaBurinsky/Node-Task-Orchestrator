@@ -5,7 +5,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import nto.application.dto.ServerDto;
-import nto.core.entities.ServerEntity;
 import nto.application.interfaces.services.ServerService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -74,7 +73,17 @@ public class ServerController {
         description = "Возвращает список всех серверов."
     )
     public ResponseEntity<List<ServerDto>> getAll(@RequestParam(required = false) String hostname) {
-        return ResponseEntity.ok(serverService.getAllServers().stream().filter((ServerDto s) -> s.hostname().contains(hostname)).toList());
+        List<ServerDto> servers = serverService.getAllServers();
+        if (hostname == null || hostname.isBlank()) {
+            return ResponseEntity.ok(servers);
+        }
+
+        String hostnameFilter = hostname.trim();
+        List<ServerDto> filteredServers = servers.stream()
+            .filter(server -> server.hostname() != null
+                && server.hostname().contains(hostnameFilter))
+            .toList();
+        return ResponseEntity.ok(filteredServers);
     }
 
     @GetMapping("/{id}/ping")
