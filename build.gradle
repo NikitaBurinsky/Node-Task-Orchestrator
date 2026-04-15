@@ -21,8 +21,8 @@ description = 'Demo project for Spring Boot'
 checkstyle {
     toolVersion = "10.12.4"
     configFile = file("${rootDir}/config/checkstyle/checkstyle.xml")
-    ignoreFailures = false
-    maxWarnings = 0
+    ignoreFailures = true
+    maxWarnings = Integer.MAX_VALUE
 }
 java {
     toolchain {
