@@ -41,6 +41,37 @@ export function LiveStatusStrip({
   onRefresh,
   refreshLabel = 'Refresh now',
 }: LiveStatusStripProps) {
+  if (state === 'active') {
+    return (
+      <div
+        className="fixed bottom-4 right-4 z-30 px-2.5 py-2 rounded border border-green-900 bg-gray-900/90 backdrop-blur flex items-center gap-2 animate-page-enter"
+        title={
+          lastUpdatedAt
+            ? `Auto-refresh enabled. Last updated: ${new Date(lastUpdatedAt).toLocaleTimeString()}`
+            : 'Auto-refresh enabled'
+        }
+      >
+        <Activity className="w-3.5 h-3.5 text-green-400" />
+        {lastUpdatedAt && (
+          <span className="hidden sm:inline text-[10px] leading-none text-green-700 font-mono">
+            {new Date(lastUpdatedAt).toLocaleTimeString()}
+          </span>
+        )}
+        {onRefresh && (
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="inline-flex items-center justify-center w-6 h-6 rounded bg-black/60 border border-green-900 text-green-400 hover:bg-black transition-colors btn-operator"
+            aria-label={refreshLabel}
+            title={refreshLabel}
+          >
+            <RefreshCw className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+    );
+  }
+
   const meta = getStateMeta(state, backoffAttempt);
 
   return (

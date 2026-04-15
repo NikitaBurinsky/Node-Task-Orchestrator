@@ -10,6 +10,7 @@ export function Dashboard() {
   const [counts, setCounts] = useState({ servers: 0, groups: 0, scripts: 0, tasks: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
   const { activities, clearActivities } = useActivityFeed();
 
   const fetchCounts = useCallback(async () => {
@@ -180,55 +181,76 @@ export function Dashboard() {
                 <History className="w-5 h-5 text-green-500" />
                 <h2 className="text-xl font-bold text-green-500 font-mono">Activity Timeline</h2>
               </div>
-              <button
-                type="button"
-                onClick={clearActivities}
-                disabled={activities.length === 0}
-                className={`px-3 py-2 rounded text-xs font-mono transition-colors btn-operator ${
-                  activities.length > 0
-                    ? 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                    : 'bg-gray-900 text-gray-600 cursor-not-allowed'
-                }`}
-              >
-                Clear
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsTimelineExpanded((value) => !value)}
+                  className="px-3 py-2 rounded text-xs font-mono bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors btn-operator"
+                >
+                  {isTimelineExpanded ? 'Hide' : 'Show'}
+                </button>
+                {isTimelineExpanded && (
+                  <button
+                    type="button"
+                    onClick={clearActivities}
+                    disabled={activities.length === 0}
+                    className={`px-3 py-2 rounded text-xs font-mono transition-colors btn-operator ${
+                      activities.length > 0
+                        ? 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                        : 'bg-gray-900 text-gray-600 cursor-not-allowed'
+                    }`}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
 
-            {activities.length > 0 ? (
-              <div className="space-y-2">
-                {activities.slice(0, 12).map((activity, index) => (
-                  <div
-                    key={activity.id}
-                    className="bg-black border border-green-900 rounded px-3 py-3 flex items-center justify-between gap-3 animate-card-stagger"
-                    style={{ animationDelay: `${Math.min(index, 12) * 30}ms` }}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      {activity.status === 'success' ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                      ) : activity.status === 'error' ? (
-                        <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-                      ) : (
-                        <Info className="w-4 h-4 text-blue-500 shrink-0" />
-                      )}
-                      <div className="min-w-0">
-                        <p className="text-green-300 font-mono text-sm truncate">{activity.title}</p>
-                        {activity.details && (
-                          <p className="text-green-700 font-mono text-xs truncate">{activity.details}</p>
+            {isTimelineExpanded ? (
+              activities.length > 0 ? (
+                <div className="space-y-2">
+                  {activities.slice(0, 12).map((activity, index) => (
+                    <div
+                      key={activity.id}
+                      className="bg-black border border-green-900 rounded px-3 py-3 flex items-center justify-between gap-3 animate-card-stagger"
+                      style={{ animationDelay: `${Math.min(index, 12) * 30}ms` }}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        {activity.status === 'success' ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                        ) : activity.status === 'error' ? (
+                          <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                        ) : (
+                          <Info className="w-4 h-4 text-blue-500 shrink-0" />
                         )}
+                        <div className="min-w-0">
+                          <p className="text-green-300 font-mono text-sm truncate">{activity.title}</p>
+                          {activity.details && (
+                            <p className="text-green-700 font-mono text-xs truncate">
+                              {activity.details}
+                            </p>
+                          )}
+                        </div>
                       </div>
+                      <span className="text-green-700 text-xs font-mono shrink-0">
+                        {new Date(activity.at).toLocaleTimeString()}
+                      </span>
                     </div>
-                    <span className="text-green-700 text-xs font-mono shrink-0">
-                      {new Date(activity.at).toLocaleTimeString()}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <AsyncState
+                  kind="empty"
+                  title="No activity yet"
+                  description="Create, delete, ping, and execute actions will appear here."
+                />
+              )
             ) : (
-              <AsyncState
-                kind="empty"
-                title="No activity yet"
-                description="Create, delete, ping, and execute actions will appear here."
-              />
+              <div className="bg-black border border-green-900 rounded px-4 py-3">
+                <p className="text-green-700 font-mono text-sm">
+                  Timeline is hidden. Click <span className="text-green-500">Show</span> to expand.
+                </p>
+              </div>
             )}
           </div>
         </>
