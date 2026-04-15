@@ -232,7 +232,7 @@ export function GroupDetail() {
       )}
 
       {lastPingAt && (
-        <div className="bg-gray-900 border border-green-900 rounded-lg p-4 space-y-4">
+        <div className="bg-gray-900 border border-green-900 rounded-lg p-4 space-y-4 animate-page-enter">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <h2 className="text-green-400 font-mono font-bold">Ping Results</h2>
             <span className="text-green-700 text-xs font-mono">
@@ -261,8 +261,12 @@ export function GroupDetail() {
               </div>
               {onlineServers.length > 0 ? (
                 <ul className="space-y-1">
-                  {onlineServers.map(({ server }) => (
-                    <li key={`online-${server.id}`} className="text-green-500 text-sm font-mono">
+                  {onlineServers.map(({ server }, index) => (
+                    <li
+                      key={`online-${server.id}`}
+                      className="text-green-500 text-sm font-mono animate-card-stagger"
+                      style={{ animationDelay: `${Math.min(index, 10) * 35}ms` }}
+                    >
                       {server.hostname} ({server.ipAddress})
                     </li>
                   ))}
@@ -278,8 +282,12 @@ export function GroupDetail() {
               </div>
               {offlineServers.length > 0 ? (
                 <ul className="space-y-1">
-                  {offlineServers.map(({ server }) => (
-                    <li key={`offline-${server.id}`} className="text-red-500 text-sm font-mono">
+                  {offlineServers.map(({ server }, index) => (
+                    <li
+                      key={`offline-${server.id}`}
+                      className="text-red-500 text-sm font-mono animate-card-stagger"
+                      style={{ animationDelay: `${Math.min(index, 10) * 35}ms` }}
+                    >
                       {server.hostname} ({server.ipAddress})
                     </li>
                   ))}
@@ -368,7 +376,7 @@ export function GroupDetail() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {groupServers.map((server) => {
+        {groupServers.map((server, index) => {
           const status = getPingStatus(server.id!);
           const statusLabel =
             status === 'online' ? 'ONLINE' : status === 'offline' ? 'OFFLINE' : 'UNKNOWN';
@@ -379,13 +387,19 @@ export function GroupDetail() {
               ? 'border-red-700 text-red-400 bg-red-950/40'
               : 'border-yellow-700 text-yellow-400 bg-yellow-950/30';
           return (
-            <div key={server.id} className="bg-gray-900 border border-green-900 rounded-lg p-6">
+            <div
+              key={server.id}
+              className="bg-gray-900 border border-green-900 rounded-lg p-6 animate-card-stagger transition-transform hover:-translate-y-0.5"
+              style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
+            >
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h3 className="text-green-400 font-mono font-bold">{server.hostname}</h3>
                   <p className="text-green-700 text-sm font-mono">{server.ipAddress}</p>
                   <div
-                    className={`inline-flex mt-2 px-2 py-1 rounded border text-xs font-mono ${statusClass}`}
+                    className={`inline-flex mt-2 px-2 py-1 rounded border text-xs font-mono ${
+                      status !== 'unknown' ? 'animate-status-pop' : ''
+                    } ${statusClass}`}
                   >
                     {statusLabel}
                   </div>

@@ -56,7 +56,9 @@ export function Layout() {
         </div>
       </nav>
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <Outlet />
+        <div key={location.pathname} className="animate-page-enter">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

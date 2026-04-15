@@ -61,10 +61,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       <div className="fixed top-4 right-4 z-50 space-y-2 w-[320px] max-w-[calc(100vw-2rem)]">
-        {toasts.map((toast) => (
+        {toasts.map((toast, index) => (
           <div
             key={toast.id}
-            className={`${toastBaseClasses} ${toastVariantClasses[toast.variant]}`}
+            className={`${toastBaseClasses} ${toastVariantClasses[toast.variant]} animate-toast-in`}
+            style={{ animationDelay: `${Math.min(index, 4) * 40}ms` }}
             role="status"
             aria-live="polite"
           >

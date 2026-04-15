@@ -94,7 +94,7 @@ export function Tasks() {
     <div className="space-y-6">
       <PageHeader title="$ tasks" subtitle="Execution history" />
 
-      <div className="bg-gray-900 border border-green-900 rounded-lg p-4">
+      <div className="bg-gray-900 border border-green-900 rounded-lg p-4 animate-page-enter">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-green-500 font-mono text-sm mb-2">
@@ -145,13 +145,14 @@ export function Tasks() {
       </div>
 
       <div className="space-y-3">
-        {filteredTasks.map((task) => (
+        {filteredTasks.map((task, index) => (
           <div
             key={task.id}
             onClick={() => navigate(`/tasks/${task.id}`)}
             className={`bg-gray-900 border rounded-lg p-4 cursor-pointer hover:border-green-500 transition-colors ${getStatusColor(
               task.status
-            )}`}
+            )} animate-card-stagger transition-transform hover:-translate-y-0.5`}
+            style={{ animationDelay: `${Math.min(index, 10) * 45}ms` }}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
