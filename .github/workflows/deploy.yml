@@ -5,8 +5,72 @@ on:
     branches: [ "main" ]
 
 jobs:
+  detect-deploy-mode:
+    runs-on: ubuntu-latest
+    outputs:
+      config_only: ${{ steps.mode.outputs.config_only }}
+      frontend_only: ${{ steps.mode.outputs.frontend_only }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Detect Deploy Mode
+        id: mode
+        shell: bash
+        run: |
+          TARGET_FILE="src/main/resources/application.properties"
+          FRONTEND_DIR="frontend/"
+          BEFORE_SHA="${{ github.event.before }}"
+          AFTER_SHA="${{ github.sha }}"
+
+          if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            BEFORE_SHA="$(git rev-list --max-parents=0 HEAD)"
+          fi
+
+          mapfile -t changed_files < <(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" | sed '/^$/d')
+
+          echo "Changed files between $BEFORE_SHA and $AFTER_SHA:"
+          printf '%s\n' "${changed_files[@]}"
+
+          config_only="false"
+          if [ "${#changed_files[@]}" -gt 0 ]; then
+            config_only="true"
+            for file in "${changed_files[@]}"; do
+              if [ "$file" != "$TARGET_FILE" ]; then
+                config_only="false"
+                break
+              fi
+            done
+          fi
+
+          if [ "$config_only" = "true" ] && [ ! -f "$TARGET_FILE" ]; then
+            echo "Config file is missing in current revision; falling back to full deploy."
+            config_only="false"
+          fi
+
+          frontend_only="false"
+          if [ "${#changed_files[@]}" -gt 0 ]; then
+            frontend_only="true"
+            for file in "${changed_files[@]}"; do
+              if [[ "$file" != ${FRONTEND_DIR}* ]]; then
+                frontend_only="false"
+                break
+              fi
+            done
+          fi
+
+          echo "config_only=$config_only" >> "$GITHUB_OUTPUT"
+          echo "frontend_only=$frontend_only" >> "$GITHUB_OUTPUT"
+          echo "Detected config_only=$config_only"
+          echo "Detected frontend_only=$frontend_only"
+
   build-and-deploy:
     runs-on: ubuntu-latest
+    needs: detect-deploy-mode
+    if: needs.detect-deploy-mode.outputs.config_only != 'true' && needs.detect-deploy-mode.outputs.frontend_only != 'true'
 
     steps:
       - name: Checkout Code
@@ -25,15 +89,14 @@ jobs:
       - name: Run Tests & Build Fat JAR
         run: ./gradlew clean build
 
-
-
       - name: Prepare Deployment Artifacts
         run: |
-          mkdir deploy_artifacts
+          mkdir -p deploy_artifacts/config
           cp build/libs/*-SNAPSHOT.jar deploy_artifacts/app.jar
           cp Dockerfile deploy_artifacts/
           cp docker-compose.yml deploy_artifacts/
           cp -r nginx deploy_artifacts/
+          cp src/main/resources/application.properties deploy_artifacts/config/application.properties
 
       - name: Copy Artifacts to VPS
         uses: appleboy/scp-action@v0.1.4
@@ -53,12 +116,80 @@ jobs:
           key: ${{ secrets.VPS_KEY }}
           script: |
             cd ~/nto_app
-            
+
             echo "DB_PORT=${{ secrets.DB_PORT }}" > .env
             echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
             echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
             echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
             echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
-                  
+
+            mkdir -p config
+            test -f config/application.properties
+
             docker-compose down
             docker-compose up -d --build
+
+  deploy-config-only:
+    runs-on: ubuntu-latest
+    needs: detect-deploy-mode
+    if: needs.detect-deploy-mode.outputs.config_only == 'true' && needs.detect-deploy-mode.outputs.frontend_only != 'true'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Ensure Config Directory on VPS
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_KEY }}
+          script: |
+            mkdir -p ~/nto_app/config
+
+      - name: Copy Updated Config to VPS
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_KEY }}
+          source: "src/main/resources/application.properties"
+          target: "~/nto_app/config"
+          strip_components: 3
+
+      - name: Restart Backend with New Config
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_KEY }}
+          script: |
+            cd ~/nto_app
+            docker-compose restart nto-backend
+            docker-compose ps nto-backend
+
+            actuator_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/actuator/health || true)
+            if [ "$actuator_status" = "200" ]; then
+              echo "Health check passed via /actuator/health"
+              exit 0
+            fi
+
+            auth_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/auth/login || true)
+            if [ "$auth_status" = "405" ] || [ "$auth_status" = "400" ] || [ "$auth_status" = "415" ]; then
+              echo "Liveness check passed via /api/auth/login (status=$auth_status)"
+              exit 0
+            fi
+
+            echo "Smoke check failed: /actuator/health=$actuator_status, /api/auth/login=$auth_status"
+            exit 1
+
+  frontend-only-noop:
+    runs-on: ubuntu-latest
+    needs: detect-deploy-mode
+    if: needs.detect-deploy-mode.outputs.frontend_only == 'true'
+
+    steps:
+      - name: Skip Backend Build and Deploy
+        run: |
+          echo "Only frontend files changed."
+          echo "Skipping backend build and backend deployment."

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, Activity, Play, X, Lock } from 'lucide-react';
+import { Plus, Activity, Play, X, Lock, CheckCircle2, XCircle } from 'lucide-react';
 import { groupsApi, serversApi, scriptsApi } from '../services/api';
 import type { ServerGroupDto, ServerDto, ScriptDto, PingResultDto } from '../types/api';
 import { PageHeader } from '../components/PageHeader';
@@ -19,6 +19,7 @@ export function GroupDetail() {
   const [showExecute, setShowExecute] = useState(false);
   const [selectedScript, setSelectedScript] = useState<number | null>(null);
   const [pingResults, setPingResults] = useState<PingResultDto>({});
+  const [lastPingAt, setLastPingAt] = useState<string | null>(null);
   const [pinging, setPinging] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [updatingMembership, setUpdatingMembership] = useState(false);
@@ -98,9 +99,16 @@ export function GroupDetail() {
     try {
       const response = await groupsApi.ping(groupId);
       setPingResults(response.data);
+      setLastPingAt(new Date().toISOString());
       setError(null);
-      showToast('Ping completed for group servers.', 'success');
-      setTimeout(() => setPingResults({}), 5000);
+      const onlineCount = groupServers.filter(
+        (server) => response.data[(server.id ?? 0).toString()] === true
+      ).length;
+      const offlineCount = groupServers.length - onlineCount;
+      showToast(
+        `Ping completed. Online: ${onlineCount}, Offline: ${offlineCount}.`,
+        offlineCount > 0 ? 'info' : 'success'
+      );
     } catch (pingError) {
       console.error('Failed to ping group:', pingError);
       setError('Failed to ping group.');
@@ -137,11 +145,26 @@ export function GroupDetail() {
     [allServers, groupServers]
   );
 
+  type PingUiStatus = 'online' | 'offline' | 'unknown';
+
   const getPingStatus = (serverId: number) => {
     const key = serverId.toString();
-    if (!(key in pingResults)) return null;
-    return pingResults[key] ? 'online' : 'offline';
+    if (!(key in pingResults)) return 'unknown' as PingUiStatus;
+    return pingResults[key] ? ('online' as PingUiStatus) : ('offline' as PingUiStatus);
   };
+
+  const pingStatusRows = useMemo(
+    () =>
+      groupServers.map((server) => ({
+        server,
+        status: getPingStatus(server.id!),
+      })),
+    [groupServers, pingResults]
+  );
+
+  const onlineServers = pingStatusRows.filter((row) => row.status === 'online');
+  const offlineServers = pingStatusRows.filter((row) => row.status === 'offline');
+  const unknownServers = pingStatusRows.filter((row) => row.status === 'unknown');
 
   if (!group) {
     return (
@@ -201,6 +224,73 @@ export function GroupDetail() {
           <span>Execute Script</span>
         </button>
       </div>
+
+      {!lastPingAt && groupServers.length > 0 && (
+        <div className="border border-blue-900 bg-blue-950/30 text-blue-300 px-4 py-3 rounded font-mono text-sm">
+          Run <span className="font-bold">Ping All</span> to get explicit availability for each server.
+        </div>
+      )}
+
+      {lastPingAt && (
+        <div className="bg-gray-900 border border-green-900 rounded-lg p-4 space-y-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h2 className="text-green-400 font-mono font-bold">Ping Results</h2>
+            <span className="text-green-700 text-xs font-mono">
+              Last check: {new Date(lastPingAt).toLocaleTimeString()}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="bg-black border border-green-900 rounded p-3">
+              <div className="text-green-600 text-xs font-mono">ONLINE</div>
+              <div className="text-green-400 font-mono text-2xl font-bold">{onlineServers.length}</div>
+            </div>
+            <div className="bg-black border border-red-900 rounded p-3">
+              <div className="text-red-600 text-xs font-mono">OFFLINE</div>
+              <div className="text-red-400 font-mono text-2xl font-bold">{offlineServers.length}</div>
+            </div>
+            <div className="bg-black border border-yellow-900 rounded p-3">
+              <div className="text-yellow-600 text-xs font-mono">UNKNOWN</div>
+              <div className="text-yellow-400 font-mono text-2xl font-bold">{unknownServers.length}</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="bg-black border border-green-900 rounded p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                <span className="text-green-400 text-sm font-mono font-bold">Active Servers</span>
+              </div>
+              {onlineServers.length > 0 ? (
+                <ul className="space-y-1">
+                  {onlineServers.map(({ server }) => (
+                    <li key={`online-${server.id}`} className="text-green-500 text-sm font-mono">
+                      {server.hostname} ({server.ipAddress})
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-green-700 text-sm font-mono">No active servers.</p>
+              )}
+            </div>
+            <div className="bg-black border border-red-900 rounded p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <XCircle className="w-4 h-4 text-red-500" />
+                <span className="text-red-400 text-sm font-mono font-bold">Inactive Servers</span>
+              </div>
+              {offlineServers.length > 0 ? (
+                <ul className="space-y-1">
+                  {offlineServers.map(({ server }) => (
+                    <li key={`offline-${server.id}`} className="text-red-500 text-sm font-mono">
+                      {server.hostname} ({server.ipAddress})
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-red-700 text-sm font-mono">No inactive servers.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAddServer && (
         <div className="bg-gray-900 border border-green-900 rounded-lg p-6">
@@ -280,21 +370,25 @@ export function GroupDetail() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {groupServers.map((server) => {
           const status = getPingStatus(server.id!);
+          const statusLabel =
+            status === 'online' ? 'ONLINE' : status === 'offline' ? 'OFFLINE' : 'UNKNOWN';
+          const statusClass =
+            status === 'online'
+              ? 'border-green-700 text-green-400 bg-green-950/40'
+              : status === 'offline'
+              ? 'border-red-700 text-red-400 bg-red-950/40'
+              : 'border-yellow-700 text-yellow-400 bg-yellow-950/30';
           return (
             <div key={server.id} className="bg-gray-900 border border-green-900 rounded-lg p-6">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h3 className="text-green-400 font-mono font-bold flex items-center space-x-2">
-                    <span>{server.hostname}</span>
-                    {status && (
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          status === 'online' ? 'bg-green-500' : 'bg-red-500'
-                        }`}
-                      />
-                    )}
-                  </h3>
+                  <h3 className="text-green-400 font-mono font-bold">{server.hostname}</h3>
                   <p className="text-green-700 text-sm font-mono">{server.ipAddress}</p>
+                  <div
+                    className={`inline-flex mt-2 px-2 py-1 rounded border text-xs font-mono ${statusClass}`}
+                  >
+                    {statusLabel}
+                  </div>
                 </div>
                 <button
                   onClick={() => {

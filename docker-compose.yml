@@ -6,12 +6,15 @@ services:
     image: nto-backend:latest
     ports:
       - "8080:8080"
+    volumes:
+      - ./config/application.properties:/app/config/application.properties:ro
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       NTO_EXECUTOR_TYPE: ssh
       SERVER_FORWARD_HEADERS_STRATEGY: framework
+      SPRING_CONFIG_ADDITIONAL_LOCATION: optional:file:/app/config/
     restart: unless-stopped
 
   nginx:
