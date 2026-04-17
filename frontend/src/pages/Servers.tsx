@@ -521,7 +521,6 @@ export function Servers() {
                     })
                   }
                   className="w-full bg-black border border-green-900 rounded px-3 py-2 text-green-400 font-mono focus:outline-none focus:border-green-500"
-                  pattern="^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$"
                   required
                 />
               </div>
