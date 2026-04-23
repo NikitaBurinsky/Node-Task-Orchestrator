@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { List, CheckCircle, XCircle, Clock, Loader } from 'lucide-react';
-import { tasksApi } from '../services/api';
+import { tasksApi, serversApi, scriptsApi } from '../services/api';
 import type { TaskDto } from '../types/api';
 import { PageHeader } from '../components/PageHeader';
 import { AsyncState } from '../components/AsyncState';
@@ -11,6 +11,7 @@ import { LiveStatusStrip } from '../components/LiveStatusStrip';
 
 type TaskFilterStatus = 'ALL' | 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
 type TaskSortOrder = 'newest' | 'oldest';
+type TaskWithNames = TaskDto & { serverName: string; scriptName: string };
 
 function normalizeStatus(value: string | null): TaskFilterStatus {
   if (!value) return 'ALL';
@@ -21,6 +22,8 @@ function normalizeStatus(value: string | null): TaskFilterStatus {
 
 export function Tasks() {
   const [tasks, setTasks] = useState<TaskDto[]>([]);
+  const [serverNamesById, setServerNamesById] = useState<Record<number, string>>({});
+  const [scriptNamesById, setScriptNamesById] = useState<Record<number, string>>({});
   const [listError, setListError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -48,6 +51,29 @@ export function Tasks() {
     setSearchParams(new URLSearchParams(), { replace: true });
   }, [setSearchParams]);
 
+  const fetchTaskReferences = useCallback(async () => {
+    const [serversResponse, scriptsResponse] = await Promise.all([
+      serversApi.getAll(),
+      scriptsApi.getAll(),
+    ]);
+
+    const nextServerNames: Record<number, string> = {};
+    serversResponse.data.forEach((server) => {
+      if (typeof server.id === 'number' && server.hostname.trim()) {
+        nextServerNames[server.id] = server.hostname;
+      }
+    });
+    setServerNamesById(nextServerNames);
+
+    const nextScriptNames: Record<number, string> = {};
+    scriptsResponse.data.forEach((script) => {
+      if (typeof script.id === 'number' && script.name?.trim()) {
+        nextScriptNames[script.id] = script.name;
+      }
+    });
+    setScriptNamesById(nextScriptNames);
+  }, []);
+
   const fetchTasks = useCallback(async () => {
     const params = statusFilter === 'ALL' ? undefined : { status: statusFilter };
     const response = await tasksApi.getAll(params);
@@ -61,8 +87,8 @@ export function Tasks() {
 
   const { lastSuccessAt, consecutiveErrors, isPaused } = useAdaptivePolling(fetchTasks, {
     enabled: true,
-    baseIntervalMs: 5000,
-    maxIntervalMs: 30000,
+    baseIntervalMs: 15000,
+    maxIntervalMs: 60000,
     runImmediately: true,
     onSuccess: () => setListError(null),
     onError: (error, attempt) => {
@@ -86,6 +112,12 @@ export function Tasks() {
   }, [fetchTasks, showToast]);
 
   useEffect(() => {
+    void fetchTaskReferences().catch((error) => {
+      console.error('Failed to fetch task references:', error);
+    });
+  }, [fetchTaskReferences]);
+
+  useEffect(() => {
     const handleSearchFocus = () => {
       searchInputRef.current?.focus();
       searchInputRef.current?.select();
@@ -103,16 +135,48 @@ export function Tasks() {
     };
   }, [retryNow]);
 
+  const tasksWithNames = useMemo<TaskWithNames[]>(
+    () =>
+      tasks.map((task) => ({
+        ...task,
+        serverName:
+          typeof task.serverId === 'number' ? (serverNamesById[task.serverId] ?? 'Unknown server') : 'Unknown server',
+        scriptName:
+          typeof task.scriptId === 'number' ? (scriptNamesById[task.scriptId] ?? 'Unknown script') : 'Unknown script',
+      })),
+    [tasks, serverNamesById, scriptNamesById]
+  );
+
+  const hasUnknownReferences = useMemo(
+    () =>
+      tasks.some((task) => {
+        const hasUnknownServer =
+          typeof task.serverId === 'number' && !serverNamesById[task.serverId];
+        const hasUnknownScript =
+          typeof task.scriptId === 'number' && !scriptNamesById[task.scriptId];
+        return hasUnknownServer || hasUnknownScript;
+      }),
+    [tasks, serverNamesById, scriptNamesById]
+  );
+
+  useEffect(() => {
+    if (!hasUnknownReferences) return;
+    void fetchTaskReferences().catch((error) => {
+      console.error('Failed to refresh task references:', error);
+    });
+  }, [fetchTaskReferences, hasUnknownReferences]);
+
   const filteredTasks = useMemo(
     () =>
-      tasks.filter((task) => {
+      tasksWithNames.filter((task) => {
         if (!search.trim()) return true;
-        const term = search.trim();
-        const serverId = task.serverId?.toString() ?? '';
-        const scriptId = task.scriptId?.toString() ?? '';
-        return serverId.includes(term) || scriptId.includes(term);
+        const term = search.trim().toLowerCase();
+        return (
+          task.serverName.toLowerCase().includes(term) ||
+          task.scriptName.toLowerCase().includes(term)
+        );
       }),
-    [tasks, search]
+    [tasksWithNames, search]
   );
 
   const hasActiveFilters =
@@ -206,14 +270,14 @@ export function Tasks() {
           </div>
           <div className="md:col-span-2">
             <label className="block text-green-500 font-mono text-sm mb-2">
-              Search (Server ID or Script ID)
+              Search (Server Name or Script Name)
             </label>
             <input
               ref={searchInputRef}
               type="text"
               value={search}
               onChange={(event) => setQueryParam('q', event.target.value)}
-              placeholder="e.g. 12"
+              placeholder="e.g. web-01 or deploy.sh"
               className="w-full bg-black border border-green-900 rounded px-3 py-2 text-green-400 font-mono focus:outline-none focus:border-green-500"
             />
           </div>
@@ -282,7 +346,7 @@ export function Tasks() {
                       </span>
                     </div>
                     <div className="text-green-700 text-sm font-mono mt-1">
-                      Server ID: {task.serverId} | Script ID: {task.scriptId}
+                      Server: {task.serverName} | Script: {task.scriptName}
                     </div>
                   </div>
                 </div>
