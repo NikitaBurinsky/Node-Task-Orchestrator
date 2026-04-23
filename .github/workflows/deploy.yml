@@ -165,22 +165,35 @@ jobs:
           key: ${{ secrets.VPS_KEY }}
           script: |
             cd ~/nto_app
-            docker-compose restart nto-backend
+
+            # Recreate only backend container to guarantee fresh process state with new config mount
+            docker-compose up -d --no-deps --force-recreate nto-backend
             docker-compose ps nto-backend
 
-            actuator_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/actuator/health || true)
-            if [ "$actuator_status" = "200" ]; then
-              echo "Health check passed via /actuator/health"
-              exit 0
-            fi
+            max_attempts=24
+            sleep_seconds=5
 
-            auth_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/auth/login || true)
-            if [ "$auth_status" = "405" ] || [ "$auth_status" = "400" ] || [ "$auth_status" = "415" ]; then
-              echo "Liveness check passed via /api/auth/login (status=$auth_status)"
-              exit 0
-            fi
+            for attempt in $(seq 1 "$max_attempts"); do
+              actuator_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/actuator/health || true)
+              auth_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/auth/login || true)
 
-            echo "Smoke check failed: /actuator/health=$actuator_status, /api/auth/login=$auth_status"
+              if [ "$actuator_status" = "200" ]; then
+                echo "Health check passed via /actuator/health"
+                exit 0
+              fi
+
+              if [ "$auth_status" = "405" ] || [ "$auth_status" = "400" ] || [ "$auth_status" = "415" ]; then
+                echo "Liveness check passed via /api/auth/login (status=$auth_status)"
+                exit 0
+              fi
+
+              echo "Attempt $attempt/$max_attempts: /actuator/health=$actuator_status, /api/auth/login=$auth_status. Waiting ${sleep_seconds}s..."
+              sleep "$sleep_seconds"
+            done
+
+            echo "Smoke check failed after $max_attempts attempts."
+            docker-compose ps nto-backend || true
+            docker-compose logs --tail=200 nto-backend || true
             exit 1
 
   frontend-only-noop:
